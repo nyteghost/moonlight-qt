@@ -1973,6 +1973,11 @@ void Session::exec()
     // because we want to suspend all Qt processing until the stream is over.
     SDL_Event event;
     for (;;) {
+        // Expire short-lived button messages ("Sent: Alt+Tab")
+        if (m_ShortcutMenu != nullptr) {
+            m_ShortcutMenu->tick();
+        }
+
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform
         // support to block on events rather than polling on Windows, macOS, X11,
@@ -1983,7 +1988,7 @@ void Session::exec()
         // NB: This behavior was introduced in SDL 2.0.16, but had a few critical
         // issues that could cause indefinite timeouts, delayed joystick detection,
         // and other problems.
-        if (!SDL_WaitEventTimeout(&event, 1000)) {
+        if (!SDL_WaitEventTimeout(&event, (m_ShortcutMenu != nullptr && m_ShortcutMenu->needsTick()) ? 50 : 1000)) {
             presence.runCallbacks();
             continue;
         }
@@ -2278,6 +2283,10 @@ void Session::exec()
                 if (!m_ShortcutMenu->isValid()) {
                     delete m_ShortcutMenu;
                     m_ShortcutMenu = nullptr;
+                }
+                else {
+                    // Remind the user how to reach it (the first few streams only)
+                    m_ShortcutMenu->showHint();
                 }
             }
             if (m_ShortcutMenu != nullptr) {

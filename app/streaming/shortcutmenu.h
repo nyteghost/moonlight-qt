@@ -36,6 +36,14 @@ public:
     // Show/hide the button from the keyboard (also frees the mouse if it was captured).
     void toggleFromHotkey();
 
+    // Briefly shows how to reach the menu when a stream starts (the first few times),
+    // or warns about a problem in the custom shortcuts file.
+    void showHint();
+
+    // Call regularly from the event loop; hides transient messages when they expire.
+    void tick();
+    bool needsTick() const { return m_TransientUntil != 0; }
+
 private:
     enum Kind {
         KindHostKeys,   // press and release a chord on the remote PC
@@ -55,6 +63,7 @@ private:
         bool dangerous;
         int column;
         SDL_Rect rect;
+        bool pinned = false;
     };
 
     void buildItems();
@@ -63,6 +72,12 @@ private:
     static QString configFilePath();
     static bool parseKeyCombo(const QString& combo, std::vector<unsigned short>& out);
     void layoutItems();
+    void addTopColumn();
+    static std::string itemId(const Item& item);
+    void togglePin(int index);
+    void recordRecent(const Item& item);
+    void showTransient(const std::string& message, unsigned int durationMs);
+    void endTransient();
     void setExpanded(bool expanded);
     void close(bool refocusStream);
     void dismiss(bool refocusStream);
@@ -115,6 +130,14 @@ private:
     bool m_Dragging;
     int m_DownGlobalX, m_DownGlobalY;
     int m_GrabLocalX, m_GrabLocalY;
+
+    // A short message shown in place of the button label ("Sent: Alt+Tab"). The button
+    // is revealed just for the message when it was hidden before.
+    unsigned int m_TransientUntil; // SDL tick deadline, 0 when no message is showing
+    std::string m_TransientMessage;
+    bool m_TransientOwnsReveal;
+    bool m_SwallowEscUp;
+    std::string m_ConfigProblem;
 
     bool m_HintOverridden;
     char* m_SavedHint;

@@ -26,6 +26,7 @@ public:
     Q_PROPERTY(bool hasDiscordIntegration MEMBER hasDiscordIntegration CONSTANT)
     Q_PROPERTY(bool usesMaterial3Theme MEMBER usesMaterial3Theme CONSTANT)
     Q_PROPERTY(QString versionString MEMBER versionString CONSTANT)
+    Q_PROPERTY(QString buildString MEMBER buildString CONSTANT)
 
     // Properties queried asynchronously (startAsyncLoad() must be called!)
     Q_PROPERTY(bool hasHardwareAcceleration MEMBER hasHardwareAcceleration NOTIFY hasHardwareAccelerationChanged)
@@ -38,6 +39,11 @@ public:
     Q_INVOKABLE QRect getNativeResolution(int displayIndex);
     Q_INVOKABLE QRect getSafeAreaResolution(int displayIndex);
     Q_INVOKABLE int getRefreshRate(int displayIndex);
+
+    // Writes a text file with version/system info and the end of the newest log to the
+    // Downloads folder, opens that folder, and returns the file's path ("" on failure).
+    Q_INVOKABLE QString saveDiagnostics();
+    Q_INVOKABLE void openLogFolder();
 
     Q_INVOKABLE void startAsyncLoad();
     Q_INVOKABLE void waitForAsyncLoad();
@@ -66,6 +72,7 @@ private:
     bool hasBrowser;
     bool hasDiscordIntegration;
     QString versionString;
+    QString buildString;
     bool usesMaterial3Theme;
     bool isDarwin;
 

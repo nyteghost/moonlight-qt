@@ -237,12 +237,27 @@ ApplicationWindow {
         anchors.topMargin: 5
         anchors.bottomMargin: 5
 
+        // Flat dark bar with a thin bottom border, like the Vibepollo web UI header
+        background: Rectangle {
+            color: "#0D1424"
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: "#1E2640"
+            }
+        }
+
         Label {
             id: titleLabel
             visible: toolBar.width > 700
             anchors.fill: parent
             text: stackView.currentItem.objectName
             font.pointSize: 20
+            font.weight: Font.DemiBold
+            color: "#E2E8F0"
             elide: Label.ElideRight
             horizontalAlignment: Qt.AlignHCenter
             verticalAlignment: Qt.AlignVCenter
@@ -286,7 +301,7 @@ ApplicationWindow {
             Label {
                 id: versionLabel
                 visible: stackView.currentItem instanceof SettingsView
-                text: qsTr("Version %1").arg(SystemProperties.versionString)
+                text: qsTr("Version %1").arg(SystemProperties.buildString)
                 font.pointSize: 12
                 horizontalAlignment: Qt.AlignRight
                 verticalAlignment: Qt.AlignVCenter
@@ -340,6 +355,9 @@ ApplicationWindow {
 
             NavigableToolButton {
                 property string browserUrl: ""
+                property string newVersion: ""
+                property bool downloading: false
+                property string downloadedPath: ""
 
                 id: updateButton
 
@@ -354,20 +372,65 @@ ApplicationWindow {
                 visible: false
 
                 onClicked: {
-                    if (SystemProperties.hasBrowser) {
+                    if (downloading) {
+                        return
+                    }
+                    if (downloadedPath !== "") {
+                        AutoUpdateChecker.revealDownload()
+                    }
+                    else if (AutoUpdateChecker.hasDownload()) {
+                        downloading = true
+                        ToolTip.text = qsTr("Downloading Vibelight %1...").arg(newVersion)
+                        AutoUpdateChecker.downloadUpdate()
+                    }
+                    else if (SystemProperties.hasBrowser) {
                         Qt.openUrlExternally(browserUrl);
                     }
                 }
 
                 function updateAvailable(version, url)
                 {
-                    ToolTip.text = qsTr("Update available for Vibelight: Version %1").arg(version)
+                    updateButton.newVersion = version
+                    if (AutoUpdateChecker.hasDownload()) {
+                        ToolTip.text = qsTr("Update available for Vibelight: Version %1. Click to download it.").arg(version)
+                    }
+                    else {
+                        ToolTip.text = qsTr("Update available for Vibelight: Version %1").arg(version)
+                    }
                     updateButton.browserUrl = url
                     updateButton.visible = true
                 }
 
+                function updateProgress(received, total)
+                {
+                    if (total > 0) {
+                        ToolTip.text = qsTr("Downloading Vibelight %1... %2%").arg(newVersion).arg(Math.floor(received * 100 / total))
+                    }
+                }
+
+                function updateDownloaded(path)
+                {
+                    downloading = false
+                    downloadedPath = path
+                    ToolTip.text = qsTr("Vibelight %1 downloaded. Click to open the folder.").arg(newVersion)
+                    updateDownloadedDialog.text = qsTr("Vibelight %1 was downloaded to:").arg(newVersion) + "\n\n" + path +
+                                                  "\n\n" + qsTr("Click OK to open the folder. Close Vibelight, then unzip it into a new folder. Keep your portable.dat file there to keep your settings.")
+                    updateDownloadedDialog.open()
+                }
+
+                function updateDownloadFailed(message)
+                {
+                    downloading = false
+                    ToolTip.text = qsTr("Update available for Vibelight: Version %1. Click to try downloading again.").arg(newVersion)
+                    updateFailedDialog.text = message
+                    updateFailedDialog.open()
+                }
+
                 Component.onCompleted: {
                     AutoUpdateChecker.onUpdateAvailable.connect(updateAvailable)
+                    AutoUpdateChecker.downloadProgress.connect(updateProgress)
+                    AutoUpdateChecker.downloadFinished.connect(updateDownloaded)
+                    AutoUpdateChecker.downloadFailed.connect(updateDownloadFailed)
                     AutoUpdateChecker.start()
                 }
 
@@ -465,8 +528,19 @@ ApplicationWindow {
         standardButtons: Dialog.Ok | Dialog.Cancel
         text: qsTr("This version of Vibelight isn't optimized for your PC. Please download the '%1' version of Vibelight for the best streaming performance.").arg(SystemProperties.friendlyNativeArchName)
         onAccepted: {
-            Qt.openUrlExternally("https://github.com/moonlight-stream/moonlight-qt/releases");
+            Qt.openUrlExternally("https://github.com/nyteghost/moonlight-qt/releases");
         }
+    }
+
+    NavigableMessageDialog {
+        id: updateDownloadedDialog
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        // OK opens the folder containing the download, Cancel just closes the dialog
+        onAccepted: AutoUpdateChecker.revealDownload()
+    }
+
+    ErrorMessageDialog {
+        id: updateFailedDialog
     }
 
     ErrorMessageDialog {

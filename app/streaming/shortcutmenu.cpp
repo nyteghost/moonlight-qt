@@ -12,6 +12,7 @@
 #include <QStandardPaths>
 #include <QStringList>
 #include <QUrl>
+#include <QSettings>
 
 #include <Limelight.h>
 
@@ -36,7 +37,8 @@ const SDL_Color kTitleColor = {0xA5, 0xB4, 0xFC, 0xFF};
 const SDL_Color kDangerColor = {0xF0, 0x70, 0x7A, 0xFF};
 const SDL_Color kHeaderTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
 const int kMaxRowsPerColumn = 14;
-const int kMaxCustomColumns = 4;
+const int kMaxCustomColumns = 2; // keeps the menu narrower than a 1920px screen
+const int kFirstCustomColumn = 3; // columns 0-2 are built in
 
 bool pointInRect(const SDL_Rect& r, int x, int y)
 {
@@ -89,6 +91,9 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
       m_Dragging(false),
       m_DownGlobalX(0), m_DownGlobalY(0),
       m_GrabLocalX(0), m_GrabLocalY(0),
+      m_TransientUntil(0),
+      m_TransientOwnsReveal(false),
+      m_SwallowEscUp(false),
       m_HintOverridden(false),
       m_SavedHint(nullptr)
 {
@@ -251,9 +256,11 @@ QString ShortcutMenu::configFilePath()
 void ShortcutMenu::buildItems()
 {
     m_Items.clear();
-    m_ColumnTitles.assign(2, std::string());
+    m_ConfigProblem.clear();
+    m_ColumnTitles.assign(3, std::string());
     m_ColumnTitles[0] = "Send to remote PC";
     m_ColumnTitles[1] = "Vibelight (Ctrl+Alt+Shift+key)";
+    m_ColumnTitles[2] = "Displays & windows";
 
     // Windows virtual-key codes
     const unsigned short CTRL = 0xA2, SHIFT = 0xA0, ALT = 0xA4, WIN = 0x5B;
@@ -267,6 +274,18 @@ void ShortcutMenu::buildItems()
         item.clientCombo = -1;
         item.dangerous = false;
         item.column = 0;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    };
+    auto display = [this](const char* label, const char* hint, std::vector<unsigned short> keys) {
+        Item item;
+        item.label = label;
+        item.hint = hint;
+        item.kind = KindHostKeys;
+        item.keys = keys;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 2;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     };
@@ -309,8 +328,21 @@ void ShortcutMenu::buildItems()
     client("Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
     client("Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
 
-    // Columns 2+: the user's own shortcuts
+    // Column 2: display and multi-monitor shortcuts sent to the remote PC
+    // (0x50 = P, 0x25 = Left arrow, 0x27 = Right arrow, 0x42 = B)
+    display("Projection modes",         "Win+P",          {WIN, 0x50});
+    display("Window to left monitor",   "Win+Shift+Left", {WIN, SHIFT, 0x25});
+    display("Window to right monitor",  "Win+Shift+Right",{WIN, SHIFT, 0x27});
+    display("Snap window left",         "Win+Left",       {WIN, 0x25});
+    display("Snap window right",        "Win+Right",      {WIN, 0x27});
+    display("Maximize window",          "Win+Up",         {WIN, 0x26});
+    display("Reset graphics driver",    "Win+Ctrl+Shift+B",{WIN, CTRL, SHIFT, 0x42});
+
+    // Columns 3+: the user's own shortcuts
     addCustomItems();
+
+    // Column 0 (everything else moves right): pinned and recently used shortcuts
+    addTopColumn();
 }
 
 void ShortcutMenu::addCustomItems()
@@ -331,13 +363,14 @@ void ShortcutMenu::addCustomItems()
 
     std::vector<Item> custom;
 
-    auto addInfo = [&custom](const std::string& message) {
+    auto addInfo = [this, &custom](const std::string& message) {
+        m_ConfigProblem = message;
         Item item;
         item.label = message;
         item.kind = KindInfo;
         item.clientCombo = -1;
         item.dangerous = true;
-        item.column = 2;
+        item.column = kFirstCustomColumn;
         item.rect = {0, 0, 0, 0};
         custom.push_back(item);
     };
@@ -371,12 +404,13 @@ void ShortcutMenu::addCustomItems()
                 item.label = label.toStdString();
                 item.clientCombo = -1;
                 item.dangerous = obj.value("confirm").toBool(false);
-                item.column = 2;
+                item.column = kFirstCustomColumn;
                 item.rect = {0, 0, 0, 0};
 
                 if (!keys.isEmpty()) {
                     if (!parseKeyCombo(keys, item.keys)) {
                         item.kind = KindInfo;
+                        m_ConfigProblem = (label + " has an unknown key").toStdString();
                         item.label = (label + " (unknown key)").toStdString();
                         item.dangerous = true;
                     }
@@ -404,7 +438,7 @@ void ShortcutMenu::addCustomItems()
         item.kind = KindOpenConfig;
         item.clientCombo = -1;
         item.dangerous = false;
-        item.column = 2;
+        item.column = kFirstCustomColumn;
         item.rect = {0, 0, 0, 0};
         custom.push_back(item);
     }
@@ -419,14 +453,14 @@ void ShortcutMenu::addCustomItems()
     }
 
     for (size_t i = 0; i < custom.size(); i++) {
-        custom[i].column = 2 + (int)(i / kMaxRowsPerColumn);
+        custom[i].column = kFirstCustomColumn + (int)(i / kMaxRowsPerColumn);
         m_Items.push_back(custom[i]);
     }
 
     const int customColumns = ((int)custom.size() + kMaxRowsPerColumn - 1) / kMaxRowsPerColumn;
-    m_ColumnTitles.resize(2 + customColumns);
+    m_ColumnTitles.resize(kFirstCustomColumn + customColumns);
     for (int c = 0; c < customColumns; c++) {
-        m_ColumnTitles[2 + c] = (c == 0) ? "Custom" : "Custom (cont.)";
+        m_ColumnTitles[kFirstCustomColumn + c] = (c == 0) ? "Custom" : "Custom (cont.)";
     }
 }
 
@@ -435,6 +469,204 @@ void ShortcutMenu::rebuildItems()
     // Re-read the custom shortcuts file so edits show up without restarting the stream
     buildItems();
     layoutItems();
+}
+
+std::string ShortcutMenu::itemId(const Item& item)
+{
+    char prefix = item.kind == KindHostKeys ? 'k' : (item.kind == KindHostText ? 't' : 'c');
+    return std::string(1, prefix) + ":" + item.label;
+}
+
+void ShortcutMenu::addTopColumn()
+{
+    QSettings settings;
+    const QStringList pins = settings.value("vibelight/pinnedShortcuts").toStringList();
+    const QStringList recents = settings.value("vibelight/recentShortcuts").toStringList();
+
+    auto findItem = [this](const QString& id) -> const Item* {
+        for (const Item& item : m_Items) {
+            if (item.kind != KindHostKeys && item.kind != KindHostText && item.kind != KindClient) {
+                continue;
+            }
+            if (QString::fromStdString(itemId(item)) == id) {
+                return &item;
+            }
+        }
+        return nullptr;
+    };
+
+    std::vector<Item> top;
+    for (const QString& id : pins) {
+        if (const Item* found = findItem(id)) {
+            Item copy = *found;
+            copy.pinned = true;
+            top.push_back(copy);
+        }
+    }
+
+    int recentCount = 0;
+    for (const QString& id : recents) {
+        if (recentCount >= 4) {
+            break;
+        }
+        if (pins.contains(id)) {
+            continue;
+        }
+        if (const Item* found = findItem(id)) {
+            top.push_back(*found);
+            recentCount++;
+        }
+    }
+
+    // Mark pinned shortcuts in their normal columns too
+    for (Item& item : m_Items) {
+        if (item.kind == KindHostKeys || item.kind == KindHostText || item.kind == KindClient) {
+            item.pinned = pins.contains(QString::fromStdString(itemId(item)));
+        }
+    }
+
+    if (top.empty()) {
+        return;
+    }
+
+    for (Item& item : m_Items) {
+        item.column++;
+    }
+    m_ColumnTitles.insert(m_ColumnTitles.begin(), "Pinned & recent");
+
+    for (Item& item : top) {
+        item.column = 0;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    }
+}
+
+void ShortcutMenu::togglePin(int index)
+{
+    if (index < 0 || index >= (int)m_Items.size()) {
+        return;
+    }
+
+    const Item& item = m_Items[index];
+    if (item.kind != KindHostKeys && item.kind != KindHostText && item.kind != KindClient) {
+        return;
+    }
+
+    const QString id = QString::fromStdString(itemId(item));
+    QSettings settings;
+    QStringList pins = settings.value("vibelight/pinnedShortcuts").toStringList();
+    if (pins.contains(id)) {
+        pins.removeAll(id);
+    }
+    else if (pins.size() < 10) {
+        pins.append(id);
+    }
+    else {
+        showTransient("You can pin up to 10 shortcuts", 2000);
+        return;
+    }
+    settings.setValue("vibelight/pinnedShortcuts", pins);
+
+    // Rebuild so the pinned column appears/disappears, then resize the open menu
+    m_HoverIndex = -1;
+    m_ConfirmIndex = -1;
+    rebuildItems();
+    if (m_Expanded) {
+        SDL_SetWindowSize(m_Window, m_ExpandedWidth, m_ExpandedHeight);
+        updatePosition();
+    }
+    render();
+}
+
+void ShortcutMenu::recordRecent(const Item& item)
+{
+    const QString id = QString::fromStdString(itemId(item));
+    QSettings settings;
+    QStringList recents = settings.value("vibelight/recentShortcuts").toStringList();
+    recents.removeAll(id);
+    recents.prepend(id);
+    while (recents.size() > 8) {
+        recents.removeLast();
+    }
+    settings.setValue("vibelight/recentShortcuts", recents);
+}
+
+void ShortcutMenu::showTransient(const std::string& message, unsigned int durationMs)
+{
+    if (m_Window == nullptr || m_Expanded) {
+        // Never disturb an open menu
+        return;
+    }
+
+    if (m_TransientUntil == 0) {
+        m_TransientOwnsReveal = !m_Revealed;
+    }
+    m_TransientMessage = message;
+    m_TransientUntil = SDL_GetTicks() + durationMs;
+    if (m_TransientUntil == 0) {
+        m_TransientUntil = 1;
+    }
+
+    // Size the button to fit the message
+    int textWidth = 0, textHeight = 0;
+    if (TTF_SizeUTF8(m_Font, message.c_str(), &textWidth, &textHeight) != 0) {
+        textWidth = (int)message.size() * 9;
+    }
+    SDL_SetWindowSize(m_Window, qMax(kCollapsedWidth, textWidth + 28), kHeaderHeight);
+
+    m_Revealed = true;
+    updatePosition();
+    render();
+}
+
+void ShortcutMenu::endTransient()
+{
+    bool hide = m_TransientOwnsReveal;
+    m_TransientUntil = 0;
+    m_TransientOwnsReveal = false;
+    m_TransientMessage.clear();
+
+    if (m_Window == nullptr) {
+        return;
+    }
+
+    if (!m_Expanded) {
+        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+    }
+
+    if (hide && !m_Expanded) {
+        m_Revealed = false;
+    }
+    updatePosition();
+    render();
+}
+
+void ShortcutMenu::tick()
+{
+    if (m_TransientUntil != 0 && (int)(SDL_GetTicks() - m_TransientUntil) >= 0) {
+        endTransient();
+    }
+}
+
+void ShortcutMenu::showHint()
+{
+    if (m_Window == nullptr) {
+        return;
+    }
+
+    if (!m_ConfigProblem.empty()) {
+        showTransient("Custom shortcuts: " + m_ConfigProblem, 6000);
+        return;
+    }
+
+    // Only remind the first few times so it doesn't get annoying
+    QSettings settings;
+    int shown = settings.value("vibelight/hintShownCount", 0).toInt();
+    if (shown >= 3) {
+        return;
+    }
+    settings.setValue("vibelight/hintShownCount", shown + 1);
+    showTransient("Press Ctrl+Alt+Shift+H for shortcuts", 5000);
 }
 
 void ShortcutMenu::layoutItems()
@@ -556,6 +788,13 @@ void ShortcutMenu::updatePosition()
 
 void ShortcutMenu::setExpanded(bool expanded)
 {
+    if (expanded && m_TransientUntil != 0) {
+        // The user opened the menu: keep the button, drop the message
+        m_TransientUntil = 0;
+        m_TransientOwnsReveal = false;
+        m_TransientMessage.clear();
+    }
+
     m_Expanded = expanded;
     m_HoverIndex = -1;
     m_ConfirmIndex = -1;
@@ -599,6 +838,11 @@ void ShortcutMenu::dismiss(bool refocusStream)
     endDrag();
     m_HeaderHover = false;
     m_Revealed = false;
+    m_TransientUntil = 0;
+    m_TransientOwnsReveal = false;
+    if (!m_Expanded) {
+        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+    }
     updatePosition();
     overrideMinimizeOnFocusLoss(false);
 }
@@ -609,11 +853,16 @@ void ShortcutMenu::toggleFromHotkey()
         return;
     }
 
-    if (m_Revealed) {
+    if (m_Revealed && m_TransientUntil == 0) {
         // Pressing the hotkey again hides the button
         dismiss(true);
         return;
     }
+
+    // A transient message is showing: the hotkey turns it into the full menu
+    m_TransientUntil = 0;
+    m_TransientOwnsReveal = false;
+    m_TransientMessage.clear();
 
     // Pick up any edits to the custom shortcuts file
     rebuildItems();
@@ -665,6 +914,12 @@ void ShortcutMenu::execute(const Item& itemRef)
         break;
     default:
         break;
+    }
+
+    // Confirm what happened, except for actions that end the stream
+    if (!(item.kind == KindClient && item.dangerous)) {
+        recordRecent(item);
+        showTransient((item.kind == KindHostText ? "Typed: " : "Sent: ") + item.label, 2000);
     }
 }
 
@@ -764,6 +1019,22 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
 
     const Uint32 id = SDL_GetWindowID(m_Window);
 
+    // Esc closes the open menu no matter which window has the keyboard focus, and the
+    // key press never reaches the remote PC.
+    if ((event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) && event.key.keysym.sym == SDLK_ESCAPE) {
+        if (event.type == SDL_KEYDOWN && m_Expanded) {
+            dismiss(true);
+            m_SwallowEscUp = true;
+            return true;
+        }
+        if (m_SwallowEscUp) {
+            if (event.type == SDL_KEYUP) {
+                m_SwallowEscUp = false;
+            }
+            return true;
+        }
+    }
+
     switch (event.type) {
     case SDL_WINDOWEVENT:
         if (event.window.windowID != id) {
@@ -788,13 +1059,10 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
             render();
             break;
         case SDL_WINDOWEVENT_FOCUS_LOST:
-            // Clicking somewhere else dismisses the dropdown (but the button stays)
+            // Clicking somewhere else closes the menu and hides the button again
             if (m_Expanded && !m_MouseDown) {
                 m_RecaptureOnClose = false;
-                setExpanded(false);
-                if (!m_HeaderHover) {
-                    overrideMinimizeOnFocusLoss(false);
-                }
+                dismiss(false);
             }
             break;
         }
@@ -823,7 +1091,11 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.button.windowID != id) {
             return false;
         }
-        if (event.button.button == SDL_BUTTON_LEFT) {
+        if (event.button.button == SDL_BUTTON_RIGHT && m_Expanded && event.button.y >= kHeaderHeight) {
+            // Right-click pins or unpins a shortcut
+            togglePin(hitTest(event.button.x, event.button.y));
+        }
+        else if (event.button.button == SDL_BUTTON_LEFT) {
             if (event.button.y < kHeaderHeight) {
                 // Might become a drag or a click; decided on button up
                 beginDrag(event.button.x, event.button.y);
@@ -915,8 +1187,16 @@ void ShortcutMenu::render()
     // Header / button (also the drag handle)
     SDL_Rect header = { 1, 1, s->w - 2, kHeaderHeight - 2 };
     SDL_FillRect(s, &header, headerColor);
-    drawText(s, m_Font, "Shortcuts", kHeaderTextColor, 12, (kHeaderHeight - TTF_FontHeight(m_Font)) / 2);
-    drawChevron(s, s->w - 16, kHeaderHeight / 2, m_Expanded, chevronColor);
+    bool showMessage = (m_TransientUntil != 0 && !m_Expanded);
+    drawText(s, m_Font, showMessage ? m_TransientMessage.c_str() : "Shortcuts", kHeaderTextColor, 12,
+             (kHeaderHeight - TTF_FontHeight(m_Font)) / 2);
+    if (!showMessage) {
+        drawChevron(s, s->w - 16, kHeaderHeight / 2, m_Expanded, chevronColor);
+    }
+    if (m_Expanded) {
+        drawText(s, m_SmallFont, "right-click to pin  |  Esc to close", kHeaderTextColor,
+                 s->w - 34, (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2, true);
+    }
 
     if (m_Expanded) {
         for (int c = 0; c < m_NumColumns && c < (int)m_ColumnTitles.size(); c++) {
@@ -934,7 +1214,8 @@ void ShortcutMenu::render()
 
             bool confirming = ((int)i == m_ConfirmIndex);
             SDL_Color color = item.dangerous ? kDangerColor : kTextColor;
-            const char* label = confirming ? "Click again to confirm" : item.label.c_str();
+            std::string labelText = item.pinned ? "* " + item.label : item.label;
+            const char* label = confirming ? "Click again to confirm" : labelText.c_str();
 
             drawText(s, m_Font, label, color,
                      item.rect.x + 6, item.rect.y + (item.rect.h - TTF_FontHeight(m_Font)) / 2);

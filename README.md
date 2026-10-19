@@ -11,7 +11,11 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 
 - **Sent to the remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
 - **Vibelight's own actions** (the Ctrl+Alt+Shift+key hotkeys): release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E).
-- **Custom shortcuts** appear in extra columns (see below).
+- **Displays & windows** (sent to the remote PC): projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), and reset the graphics driver (Win+Ctrl+Shift+B). These move windows and change display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
+- **Hints and feedback:** at the start of a stream (the first three times) the button appears for a few seconds saying how to open it. After you choose a shortcut, the button briefly shows "Sent: <shortcut>". If your custom shortcuts file has a problem, you also get a short warning at the start of the stream.
+- **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned and your four most recently used shortcuts appear in a column on the left.
+- **Closing the menu:** press Esc (it won't be sent to the remote PC), click anywhere outside it, or press Ctrl+Alt+Shift+H again.
+- **Custom shortcuts** appear in extra columns (see below), up to 28 entries.
 - Quit actions need a second click to confirm.
 - Pressing **Ctrl+Alt+Shift+H** also frees the mouse first, which is needed in relative mouse mode. Press it again, press Esc, or pick an action to hide the button again.
 
@@ -43,10 +47,10 @@ Click **Edit custom shortcuts...** in the dropdown (or edit the file yourself) t
 The icon is an original design for this fork (a crescent moon and a spark of light on a warm coral background). It is not the Moonlight logo or any other company's logo. A 1024px copy is in `branding/vibelight-icon.png`.
 
 ### Updates
-The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. It is only active on Windows, macOS, Steam Link and AppImage builds.
+The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. It doesn't replace the running app: close Vibelight, unzip into a new folder, and keep your `portable.dat` file there to keep your settings. Platforms without a downloadable package just open the release page. It is only active on Windows, macOS, Steam Link and AppImage builds.
 
 ### Look and feel
-The app's colors follow the Vibepollo web UI: a near-black navy background (`#060918`), dark navy toolbar and panels (`#0D1424`), and an indigo accent (`#6366F1`). This is a color change only. The layout is still Moonlight's.
+The app's colors follow the Vibepollo web UI: a near-black navy background (`#060918`), dark navy toolbar and panels (`#0D1424`), and an indigo accent (`#6366F1`). PC and game tiles are rounded cards whose border turns indigo on hover or keyboard focus, the top bar is flat with a thin bottom border, and each section of the Settings page is a rounded dark card with an indigo heading. The overall screen layout (grids, toolbar buttons, settings columns) is still Moonlight's.
 
 ### Rename
 The visible app name is now **Vibelight** (window titles, messages, command-line help, the Windows `.exe`, installer and portable package names). Some things intentionally still say Moonlight:
@@ -56,6 +60,12 @@ The visible app name is now **Vibelight** (window titles, messages, command-line
 - Some in-app links and licenses still point to upstream.
 
 Files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), plus small edits in `app/streaming/session.{h,cpp}`, `app/streaming/input/{input.h,input.cpp,keyboard.cpp}`, `app/app.pro`, the Windows packaging scripts and WiX files, and user-visible strings.
+
+## Support and diagnostics
+Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest.
+
+## Staying in sync with upstream Moonlight
+The **Sync upstream** workflow runs weekly (or by hand from the Actions tab). When the original Moonlight has new commits it merges them into an `upstream-sync/<date>` branch and opens a pull request into `master` for review. If the merge conflicts, or changes workflow files, it opens an issue instead. To let it handle workflow changes and start builds on its pull requests automatically, add a repository secret named `SYNC_TOKEN` (a personal access token with `repo` and `workflow` scopes).
 
 ## Releasing
 Releases are optional. To publish one:

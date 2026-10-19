@@ -6,6 +6,17 @@ ItemDelegate {
 
     highlighted: grid.activeFocus && grid.currentItem === this
 
+    // Rounded card tile in the Vibepollo style: dark navy surface, thin border that
+    // turns indigo on hover or keyboard focus.
+    background: Rectangle {
+        anchors.fill: parent
+        anchors.margins: 6
+        radius: 16
+        color: parent.pressed ? "#1A2340" : (parent.hovered || parent.highlighted ? "#131B30" : "#0D1424")
+        border.width: parent.highlighted ? 2 : 1
+        border.color: parent.highlighted || parent.hovered ? "#6366F1" : "#1E2640"
+    }
+
     Keys.onLeftPressed: {
         grid.moveCurrentIndexLeft()
     }

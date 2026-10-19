@@ -9,6 +9,7 @@
         <file>gui/QuitSegue.qml</file>
         <file>gui/NavigableToolButton.qml</file>
         <file>gui/NavigableItemDelegate.qml</file>
+        <file>gui/CardGroupBox.qml</file>
         <file>gui/NavigableMenuItem.qml</file>
         <file>gui/CliQuitStreamSegue.qml</file>
         <file>gui/CliStartStreamSegue.qml</file>

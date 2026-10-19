@@ -99,11 +99,11 @@ Flickable {
         width: settingsPage.width / 2
         spacing: 15
 
-        GroupBox {
+        CardGroupBox {
             id: basicSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Basic Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Basic Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -874,12 +874,12 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
 
             id: audioSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Audio Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Audio Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -968,11 +968,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: hostSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Host Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Host Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1008,11 +1008,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: uiSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("UI Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("UI Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1317,11 +1317,11 @@ Flickable {
         width: settingsPage.width / 2
         spacing: 15
 
-        GroupBox {
+        CardGroupBox {
             id: inputSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Input Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Input Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1465,11 +1465,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: gamepadSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Gamepad Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Gamepad Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1540,11 +1540,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: advancedSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Advanced Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Advanced Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1809,6 +1809,61 @@ Flickable {
                     ToolTip.text: qsTr("Display real-time stream performance information while streaming.") + "\n\n" +
                                   qsTr("You can toggle it at any time while streaming using Ctrl+Alt+Shift+S or Select+L1+R1+X.") + "\n\n" +
                                   qsTr("The performance overlay is not supported on Steam Link or Raspberry Pi.")
+                }
+            }
+        }
+
+        CardGroupBox {
+            id: supportGroupBox
+            width: (parent.width - (parent.leftPadding + parent.rightPadding))
+            padding: 12
+            title: "<font color=\"#A5B4FC\">" + qsTr("Support") + "</font>"
+            font.pointSize: 12
+
+            Column {
+                anchors.fill: parent
+                spacing: 8
+
+                Label {
+                    width: parent.width
+                    text: qsTr("Version %1").arg(SystemProperties.buildString)
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                Label {
+                    width: parent.width
+                    text: qsTr("If something breaks, save a diagnostics file and send it along with a description of what happened. It contains your version, system details and the end of the latest log. The log can include PC names and local IP addresses.")
+                    font.pointSize: 10
+                    wrapMode: Text.Wrap
+                    opacity: 0.8
+                }
+
+                Row {
+                    spacing: 10
+
+                    Button {
+                        text: qsTr("Save diagnostics file")
+                        onClicked: {
+                            var savedPath = SystemProperties.saveDiagnostics()
+                            diagnosticsStatus.text = savedPath !== ""
+                                    ? qsTr("Saved to %1").arg(savedPath)
+                                    : qsTr("Couldn't save the diagnostics file.")
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Open log folder")
+                        onClicked: SystemProperties.openLogFolder()
+                    }
+                }
+
+                Label {
+                    id: diagnosticsStatus
+                    width: parent.width
+                    visible: text !== ""
+                    font.pointSize: 10
+                    wrapMode: Text.WrapAnywhere
                 }
             }
         }

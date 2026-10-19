@@ -36,7 +36,8 @@ const SDL_Color kTitleColor = {0xA5, 0xB4, 0xFC, 0xFF};
 const SDL_Color kDangerColor = {0xF0, 0x70, 0x7A, 0xFF};
 const SDL_Color kHeaderTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
 const int kMaxRowsPerColumn = 14;
-const int kMaxCustomColumns = 4;
+const int kMaxCustomColumns = 2; // keeps the menu narrower than a 1920px screen
+const int kFirstCustomColumn = 3; // columns 0-2 are built in
 
 bool pointInRect(const SDL_Rect& r, int x, int y)
 {
@@ -251,9 +252,10 @@ QString ShortcutMenu::configFilePath()
 void ShortcutMenu::buildItems()
 {
     m_Items.clear();
-    m_ColumnTitles.assign(2, std::string());
+    m_ColumnTitles.assign(3, std::string());
     m_ColumnTitles[0] = "Send to remote PC";
     m_ColumnTitles[1] = "Vibelight (Ctrl+Alt+Shift+key)";
+    m_ColumnTitles[2] = "Displays & windows";
 
     // Windows virtual-key codes
     const unsigned short CTRL = 0xA2, SHIFT = 0xA0, ALT = 0xA4, WIN = 0x5B;
@@ -267,6 +269,18 @@ void ShortcutMenu::buildItems()
         item.clientCombo = -1;
         item.dangerous = false;
         item.column = 0;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    };
+    auto display = [this](const char* label, const char* hint, std::vector<unsigned short> keys) {
+        Item item;
+        item.label = label;
+        item.hint = hint;
+        item.kind = KindHostKeys;
+        item.keys = keys;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 2;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     };
@@ -309,7 +323,17 @@ void ShortcutMenu::buildItems()
     client("Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
     client("Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
 
-    // Columns 2+: the user's own shortcuts
+    // Column 2: display and multi-monitor shortcuts sent to the remote PC
+    // (0x50 = P, 0x25 = Left arrow, 0x27 = Right arrow, 0x42 = B)
+    display("Projection modes",         "Win+P",          {WIN, 0x50});
+    display("Window to left monitor",   "Win+Shift+Left", {WIN, SHIFT, 0x25});
+    display("Window to right monitor",  "Win+Shift+Right",{WIN, SHIFT, 0x27});
+    display("Snap window left",         "Win+Left",       {WIN, 0x25});
+    display("Snap window right",        "Win+Right",      {WIN, 0x27});
+    display("Maximize window",          "Win+Up",         {WIN, 0x26});
+    display("Reset graphics driver",    "Win+Ctrl+Shift+B",{WIN, CTRL, SHIFT, 0x42});
+
+    // Columns 3+: the user's own shortcuts
     addCustomItems();
 }
 
@@ -337,7 +361,7 @@ void ShortcutMenu::addCustomItems()
         item.kind = KindInfo;
         item.clientCombo = -1;
         item.dangerous = true;
-        item.column = 2;
+        item.column = kFirstCustomColumn;
         item.rect = {0, 0, 0, 0};
         custom.push_back(item);
     };
@@ -371,7 +395,7 @@ void ShortcutMenu::addCustomItems()
                 item.label = label.toStdString();
                 item.clientCombo = -1;
                 item.dangerous = obj.value("confirm").toBool(false);
-                item.column = 2;
+                item.column = kFirstCustomColumn;
                 item.rect = {0, 0, 0, 0};
 
                 if (!keys.isEmpty()) {
@@ -404,7 +428,7 @@ void ShortcutMenu::addCustomItems()
         item.kind = KindOpenConfig;
         item.clientCombo = -1;
         item.dangerous = false;
-        item.column = 2;
+        item.column = kFirstCustomColumn;
         item.rect = {0, 0, 0, 0};
         custom.push_back(item);
     }
@@ -419,14 +443,14 @@ void ShortcutMenu::addCustomItems()
     }
 
     for (size_t i = 0; i < custom.size(); i++) {
-        custom[i].column = 2 + (int)(i / kMaxRowsPerColumn);
+        custom[i].column = kFirstCustomColumn + (int)(i / kMaxRowsPerColumn);
         m_Items.push_back(custom[i]);
     }
 
     const int customColumns = ((int)custom.size() + kMaxRowsPerColumn - 1) / kMaxRowsPerColumn;
-    m_ColumnTitles.resize(2 + customColumns);
+    m_ColumnTitles.resize(kFirstCustomColumn + customColumns);
     for (int c = 0; c < customColumns; c++) {
-        m_ColumnTitles[2 + c] = (c == 0) ? "Custom" : "Custom (cont.)";
+        m_ColumnTitles[kFirstCustomColumn + c] = (c == 0) ? "Custom" : "Custom (cont.)";
     }
 }
 

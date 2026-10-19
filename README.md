@@ -11,7 +11,8 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 
 - **Sent to the remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
 - **Vibelight's own actions** (the Ctrl+Alt+Shift+key hotkeys): release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E).
-- **Custom shortcuts** appear in extra columns (see below).
+- **Displays & windows** (sent to the remote PC): projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), and reset the graphics driver (Win+Ctrl+Shift+B). These move windows and change display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
+- **Custom shortcuts** appear in extra columns (see below), up to 28 entries.
 - Quit actions need a second click to confirm.
 - Pressing **Ctrl+Alt+Shift+H** also frees the mouse first, which is needed in relative mouse mode. Press it again, press Esc, or pick an action to hide the button again.
 
@@ -43,7 +44,7 @@ Click **Edit custom shortcuts...** in the dropdown (or edit the file yourself) t
 The icon is an original design for this fork (a crescent moon and a spark of light on a warm coral background). It is not the Moonlight logo or any other company's logo. A 1024px copy is in `branding/vibelight-icon.png`.
 
 ### Updates
-The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. It is only active on Windows, macOS, Steam Link and AppImage builds.
+The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. It doesn't replace the running app: close Vibelight, unzip into a new folder, and keep your `portable.dat` file there to keep your settings. Platforms without a downloadable package just open the release page. It is only active on Windows, macOS, Steam Link and AppImage builds.
 
 ### Look and feel
 The app's colors follow the Vibepollo web UI: a near-black navy background (`#060918`), dark navy toolbar and panels (`#0D1424`), and an indigo accent (`#6366F1`). This is a color change only. The layout is still Moonlight's.

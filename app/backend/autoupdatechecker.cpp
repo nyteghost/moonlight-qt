@@ -4,6 +4,13 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QCryptographicHash>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QSysInfo>
+#include <QUrl>
 
 AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     QObject(parent)
@@ -97,6 +104,175 @@ QString AutoUpdateChecker::getPlatform()
 #endif
 }
 
+void AutoUpdateChecker::pickDownloadAsset(const QJsonArray& assets)
+{
+    m_DownloadUrl.clear();
+    m_DownloadName.clear();
+    m_DownloadSha256.clear();
+    m_DownloadSize = 0;
+
+#if defined(Q_OS_WIN32)
+    // Release assets are named Vibelight-<version>-Windows-<x64|arm64>-portable.zip
+    QString arch = QSysInfo::currentCpuArchitecture().contains("arm", Qt::CaseInsensitive) ? "arm64" : "x64";
+    QString wanted = QString("-Windows-%1-portable.zip").arg(arch);
+#elif defined(Q_OS_DARWIN)
+    QString wanted = "-macOS.dmg";
+#else
+    // No downloadable package for the other platforms; the button opens the release page
+    return;
+#endif
+
+    for (const QJsonValue& value : assets) {
+        QJsonObject asset = value.toObject();
+        QString name = asset["name"].toString();
+        QString url = asset["browser_download_url"].toString();
+
+        if (!name.endsWith(wanted, Qt::CaseInsensitive)) {
+            continue;
+        }
+
+        // Only ever download over HTTPS from GitHub, and never trust a file name
+        // from the network to contain a path.
+        QUrl parsed(url);
+        if (parsed.scheme() != "https" || parsed.host() != "github.com" ||
+                name != QFileInfo(name).fileName()) {
+            continue;
+        }
+
+        m_DownloadUrl = url;
+        m_DownloadName = name;
+        m_DownloadSize = (qint64)asset["size"].toDouble();
+
+        // GitHub reports a digest like "sha256:abcd..." for release assets
+        QString digest = asset["digest"].toString();
+        if (digest.startsWith("sha256:", Qt::CaseInsensitive)) {
+            m_DownloadSha256 = digest.mid(7).toLower();
+        }
+        return;
+    }
+}
+
+QString AutoUpdateChecker::uniqueDownloadPath(const QString& fileName) const
+{
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (dir.isEmpty()) {
+        dir = QDir::homePath();
+    }
+    QDir().mkpath(dir);
+
+    QFileInfo info(fileName);
+    QString base = info.completeBaseName();
+    QString suffix = info.suffix();
+
+    QString path = QDir(dir).filePath(fileName);
+    for (int i = 1; QFile::exists(path) && i < 1000; i++) {
+        path = QDir(dir).filePath(QString("%1 (%2).%3").arg(base).arg(i).arg(suffix));
+    }
+    return path;
+}
+
+void AutoUpdateChecker::downloadUpdate()
+{
+    if (m_DownloadUrl.isEmpty()) {
+        emit downloadFailed(tr("No download is available for this platform."));
+        return;
+    }
+    if (m_DownloadReply != nullptr) {
+        // Already downloading
+        return;
+    }
+
+    m_DownloadPath = uniqueDownloadPath(m_DownloadName);
+    m_DownloadFile.setFileName(m_DownloadPath + ".part");
+    if (!m_DownloadFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        emit downloadFailed(tr("Unable to write to %1").arg(QDir::toNativeSeparators(m_DownloadPath)));
+        return;
+    }
+
+    if (m_DownloadNam == nullptr) {
+        m_DownloadNam = new QNetworkAccessManager(this);
+        m_DownloadNam->setStrictTransportSecurityEnabled(true);
+        m_DownloadNam->setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+    }
+
+    QNetworkRequest request{QUrl(m_DownloadUrl)};
+    request.setRawHeader("User-Agent", "Vibelight-UpdateChecker");
+    m_DownloadReply = m_DownloadNam->get(request);
+
+    connect(m_DownloadReply, &QNetworkReply::readyRead, this, [this]() {
+        if (m_DownloadReply != nullptr && m_DownloadFile.isOpen()) {
+            m_DownloadFile.write(m_DownloadReply->readAll());
+        }
+    });
+    connect(m_DownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        // GitHub's redirect target may not report a total; fall back to the asset size
+        emit downloadProgress(received, total > 0 ? total : m_DownloadSize);
+    });
+    connect(m_DownloadReply, &QNetworkReply::finished, this, [this]() {
+        finishDownload();
+    });
+}
+
+void AutoUpdateChecker::failDownload(const QString& message)
+{
+    if (m_DownloadFile.isOpen()) {
+        m_DownloadFile.close();
+    }
+    QFile::remove(m_DownloadFile.fileName());
+
+    if (m_DownloadReply != nullptr) {
+        m_DownloadReply->deleteLater();
+        m_DownloadReply = nullptr;
+    }
+
+    emit downloadFailed(message);
+}
+
+void AutoUpdateChecker::finishDownload()
+{
+    QNetworkReply* reply = m_DownloadReply;
+    if (reply == nullptr) {
+        return;
+    }
+
+    if (reply->error() != QNetworkReply::NoError) {
+        failDownload(tr("Download failed: %1").arg(reply->errorString()));
+        return;
+    }
+
+    m_DownloadFile.write(reply->readAll());
+    m_DownloadFile.close();
+
+    // Verify the download against the digest GitHub published, when there is one
+    if (!m_DownloadSha256.isEmpty()) {
+        QFile partial(m_DownloadFile.fileName());
+        QCryptographicHash hash(QCryptographicHash::Sha256);
+        if (!partial.open(QIODevice::ReadOnly) || !hash.addData(&partial) ||
+                hash.result().toHex().toLower() != m_DownloadSha256.toUtf8()) {
+            failDownload(tr("The downloaded file didn't match its checksum, so it was deleted."));
+            return;
+        }
+    }
+
+    if (!QFile::rename(m_DownloadFile.fileName(), m_DownloadPath)) {
+        failDownload(tr("Unable to save %1").arg(QDir::toNativeSeparators(m_DownloadPath)));
+        return;
+    }
+
+    reply->deleteLater();
+    m_DownloadReply = nullptr;
+    m_DownloadedFile = m_DownloadPath;
+    emit downloadFinished(QDir::toNativeSeparators(m_DownloadedFile));
+}
+
+void AutoUpdateChecker::revealDownload()
+{
+    QString path = m_DownloadedFile.isEmpty() ? m_DownloadPath : m_DownloadedFile;
+    if (!path.isEmpty()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    }
+}
+
 int AutoUpdateChecker::compareVersion(QVector<int>& version1, QVector<int>& version2) {
     for (int i = 0;; i++) {
         int v1Val = 0;
@@ -157,6 +333,8 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
             qWarning() << "GitHub release response missing tag_name or html_url";
             return;
         }
+
+        pickDownloadAsset(release["assets"].toArray());
 
         QString latestVersion = release["tag_name"].toString();
         qDebug() << "Latest Vibelight release is:" << latestVersion;

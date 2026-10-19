@@ -111,12 +111,13 @@ void AutoUpdateChecker::pickDownloadAsset(const QJsonArray& assets)
     m_DownloadSha256.clear();
     m_DownloadSize = 0;
 
+    QString wanted;
 #if defined(Q_OS_WIN32)
     // Release assets are named Vibelight-<version>-Windows-<x64|arm64>-portable.zip
     QString arch = QSysInfo::currentCpuArchitecture().contains("arm", Qt::CaseInsensitive) ? "arm64" : "x64";
-    QString wanted = QString("-Windows-%1-portable.zip").arg(arch);
+    wanted = QString("-Windows-%1-portable.zip").arg(arch);
 #elif defined(Q_OS_DARWIN)
-    QString wanted = "-macOS.dmg";
+    wanted = "-macOS.dmg";
 #else
     // No downloadable package for the other platforms; the button opens the release page
     return;

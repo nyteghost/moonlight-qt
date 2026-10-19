@@ -584,3 +584,8 @@ macx {
 
 VERSION = "$$cat(version.txt)"
 DEFINES += VERSION_STR=\\\"$$cat(version.txt)\\\"
+
+# Short git commit of this build, shown in Settings and in the diagnostics file
+BUILD_COMMIT = $$system(git rev-parse --short=7 HEAD)
+isEmpty(BUILD_COMMIT): BUILD_COMMIT = unknown
+DEFINES += BUILD_COMMIT=\\\"$$BUILD_COMMIT\\\"

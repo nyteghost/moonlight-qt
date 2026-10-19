@@ -61,6 +61,12 @@ The visible app name is now **Vibelight** (window titles, messages, command-line
 
 Files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), plus small edits in `app/streaming/session.{h,cpp}`, `app/streaming/input/{input.h,input.cpp,keyboard.cpp}`, `app/app.pro`, the Windows packaging scripts and WiX files, and user-visible strings.
 
+## Support and diagnostics
+Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest.
+
+## Staying in sync with upstream Moonlight
+The **Sync upstream** workflow runs weekly (or by hand from the Actions tab). When the original Moonlight has new commits it merges them into an `upstream-sync/<date>` branch and opens a pull request into `master` for review. If the merge conflicts, or changes workflow files, it opens an issue instead. To let it handle workflow changes and start builds on its pull requests automatically, add a repository secret named `SYNC_TOKEN` (a personal access token with `repo` and `workflow` scopes).
+
 ## Releasing
 Releases are optional. To publish one:
 

@@ -1812,5 +1812,60 @@ Flickable {
                 }
             }
         }
+
+        CardGroupBox {
+            id: supportGroupBox
+            width: (parent.width - (parent.leftPadding + parent.rightPadding))
+            padding: 12
+            title: "<font color=\"#A5B4FC\">" + qsTr("Support") + "</font>"
+            font.pointSize: 12
+
+            Column {
+                anchors.fill: parent
+                spacing: 8
+
+                Label {
+                    width: parent.width
+                    text: qsTr("Version %1").arg(SystemProperties.buildString)
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                Label {
+                    width: parent.width
+                    text: qsTr("If something breaks, save a diagnostics file and send it along with a description of what happened. It contains your version, system details and the end of the latest log. The log can include PC names and local IP addresses.")
+                    font.pointSize: 10
+                    wrapMode: Text.Wrap
+                    opacity: 0.8
+                }
+
+                Row {
+                    spacing: 10
+
+                    Button {
+                        text: qsTr("Save diagnostics file")
+                        onClicked: {
+                            var savedPath = SystemProperties.saveDiagnostics()
+                            diagnosticsStatus.text = savedPath !== ""
+                                    ? qsTr("Saved to %1").arg(savedPath)
+                                    : qsTr("Couldn't save the diagnostics file.")
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Open log folder")
+                        onClicked: SystemProperties.openLogFolder()
+                    }
+                }
+
+                Label {
+                    id: diagnosticsStatus
+                    width: parent.width
+                    visible: text !== ""
+                    font.pointSize: 10
+                    wrapMode: Text.WrapAnywhere
+                }
+            }
+        }
     }
 }

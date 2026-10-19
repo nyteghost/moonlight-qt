@@ -3,6 +3,16 @@
 
 #include <QGuiApplication>
 #include <QLibraryInfo>
+#include <QDateTime>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QSysInfo>
+#include <QUrl>
+
+#include "path.h"
 
 #include "streaming/session.h"
 #include "streaming/streamutils.h"
@@ -47,6 +57,11 @@ private:
 SystemProperties::SystemProperties()
 {
     versionString = QString(VERSION_STR);
+#ifdef BUILD_COMMIT
+    buildString = QString("%1 (%2)").arg(VERSION_STR, BUILD_COMMIT);
+#else
+    buildString = versionString;
+#endif
     hasDesktopEnvironment = WMUtils::isRunningDesktopEnvironment();
     isRunningWayland = WMUtils::isRunningWayland();
     isRunningXWayland = isRunningWayland && QGuiApplication::platformName() == "xcb";
@@ -276,4 +291,63 @@ void SystemProperties::refreshDisplays()
     }
 
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
+}
+
+QString SystemProperties::saveDiagnostics()
+{
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (dir.isEmpty()) {
+        dir = QDir::homePath();
+    }
+    QDir().mkpath(dir);
+
+    QString path = QDir(dir).filePath(
+        QString("Vibelight-diagnostics-%1.txt").arg(QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")));
+    QFile out(path);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return QString();
+    }
+
+    QTextStream stream(&out);
+    stream << "Vibelight diagnostics\n";
+    stream << "Created: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n\n";
+    stream << "Version: " << buildString << "\n";
+    stream << "Qt runtime: " << qVersion() << "\n";
+    stream << "OS: " << QSysInfo::prettyProductName() << " (kernel " << QSysInfo::kernelVersion() << ")\n";
+    stream << "CPU architecture: " << QSysInfo::currentCpuArchitecture() << " (native: " << friendlyNativeArchName << ")\n";
+    stream << "Running under WOW64: " << (isWow64 ? "yes" : "no") << "\n";
+    stream << "Portable mode: " << (QFile::exists(QDir::currentPath() + "/portable.dat") ? "yes" : "no") << "\n";
+    stream << "Wayland: " << (isRunningWayland ? "yes" : "no") << "\n";
+    stream << "Hardware acceleration: " << (hasHardwareAcceleration ? "yes" : "no") << "\n";
+    stream << "HDR supported: " << (supportsHdr ? "yes" : "no") << "\n";
+    stream << "Maximum resolution: " << maximumResolution.width() << "x" << maximumResolution.height() << "\n";
+    stream << "Unmapped gamepads: " << (unmappedGamepads.isEmpty() ? QString("none") : unmappedGamepads) << "\n";
+
+    // The newest log is the one for this run. Only the end is included to keep the file small.
+    QDir logDir(Path::getLogDir());
+    QFileInfoList logs = logDir.entryInfoList(QStringList("Moonlight-*.log"), QDir::Files, QDir::Time);
+    stream << "\n---- Latest log: " << (logs.isEmpty() ? QString("none found") : logs.first().fileName()) << " ----\n";
+    if (!logs.isEmpty()) {
+        QFile log(logs.first().absoluteFilePath());
+        if (log.open(QIODevice::ReadOnly)) {
+            const qint64 maxBytes = 512 * 1024;
+            if (log.size() > maxBytes) {
+                log.seek(log.size() - maxBytes);
+                log.readLine(); // drop the partial first line
+                stream << "[... earlier output omitted ...]\n";
+            }
+            stream << QString::fromUtf8(log.readAll());
+        }
+    }
+
+    stream.flush();
+    out.close();
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    return QDir::toNativeSeparators(path);
+}
+
+void SystemProperties::openLogFolder()
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(Path::getLogDir()));
 }

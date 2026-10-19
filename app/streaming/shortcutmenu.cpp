@@ -97,6 +97,7 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
       m_TransientUntil(0),
       m_TransientOwnsReveal(false),
       m_SwallowEscUp(false),
+      m_ExpandedAt(0),
       m_StartTicks(SDL_GetTicks()),
       m_LastTimerSecond(-1),
       m_CheckActive(false),
@@ -853,6 +854,7 @@ void ShortcutMenu::updatePosition()
 
     if (!m_Revealed) {
         if (m_Shown) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: hiding window");
             SDL_HideWindow(m_Window);
             m_Shown = false;
         }
@@ -862,6 +864,7 @@ void ShortcutMenu::updatePosition()
     Uint32 parentFlags = SDL_GetWindowFlags(m_Parent);
     if (parentFlags & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) {
         if (m_Shown) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: hiding window because the stream window is minimized or hidden");
             SDL_HideWindow(m_Window);
             m_Shown = false;
         }
@@ -895,6 +898,7 @@ void ShortcutMenu::updatePosition()
     }
 
     if (!m_Shown) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: showing window at %d,%d (%dx%d)", x, y, w, h);
         showWithoutActivation();
         m_Shown = true;
 
@@ -919,6 +923,9 @@ void ShortcutMenu::setExpanded(bool expanded)
     }
 
     m_Expanded = expanded;
+    if (expanded) {
+        m_ExpandedAt = SDL_GetTicks();
+    }
     m_HoverIndex = -1;
     m_ConfirmIndex = -1;
 
@@ -975,6 +982,10 @@ void ShortcutMenu::toggleFromHotkey()
     if (m_Window == nullptr) {
         return;
     }
+
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                "Shortcut menu: toggle requested (revealed=%d, shown=%d, expanded=%d, transient=%d)",
+                (int)m_Revealed, (int)m_Shown, (int)m_Expanded, (int)(m_TransientUntil != 0));
 
     if (m_Revealed && m_TransientUntil == 0) {
         // Pressing the hotkey again hides the button
@@ -1189,8 +1200,16 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         case SDL_WINDOWEVENT_FOCUS_LOST:
             // Clicking somewhere else closes the menu and hides the button again
             if (m_Expanded && !m_MouseDown) {
-                m_RecaptureOnClose = false;
-                dismiss(false);
+                // Window focus can briefly bounce between the stream and this window while the
+                // menu is opening, so ignore focus changes right after it appears.
+                if (SDL_GetTicks() - m_ExpandedAt < 500) {
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: ignoring early focus loss");
+                }
+                else {
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: closing after focus loss");
+                    m_RecaptureOnClose = false;
+                    dismiss(false);
+                }
             }
             break;
         }

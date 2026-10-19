@@ -141,6 +141,7 @@ private:
     std::string m_TransientMessage;
     bool m_TransientOwnsReveal;
     bool m_SwallowEscUp;
+    unsigned int m_ExpandedAt; // SDL tick when the menu last opened
 
     // Stream timer shown next to the button label
     unsigned int m_StartTicks;

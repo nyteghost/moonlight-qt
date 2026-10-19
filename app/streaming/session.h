@@ -129,6 +129,13 @@ public:
 
     void toggleShortcutMenu();
 
+    // Used by the shortcut menu's connection check
+    bool getConnectionSnapshot(CONNECTION_SNAPSHOT& snapshot);
+    int getConfiguredBitrateKbps() const
+    {
+        return m_StreamConfig.bitrate;
+    }
+
 signals:
     void stageStarting(QString stage);
 

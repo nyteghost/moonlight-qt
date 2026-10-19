@@ -1735,6 +1735,19 @@ void Session::flushWindowEvents()
     SDL_PushEvent(&flushEvent);
 }
 
+bool Session::getConnectionSnapshot(CONNECTION_SNAPSHOT& snapshot)
+{
+    bool ok = false;
+
+    SDL_LockMutex(m_DecoderLock);
+    if (m_VideoDecoder != nullptr) {
+        ok = m_VideoDecoder->getConnectionSnapshot(&snapshot);
+    }
+    SDL_UnlockMutex(m_DecoderLock);
+
+    return ok;
+}
+
 void Session::toggleShortcutMenu()
 {
     if (m_ShortcutMenu != nullptr) {

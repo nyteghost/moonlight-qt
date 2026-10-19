@@ -3,6 +3,7 @@
 
 #include <QGuiApplication>
 #include <QLibraryInfo>
+#include <QSettings>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -350,4 +351,10 @@ QString SystemProperties::saveDiagnostics()
 void SystemProperties::openLogFolder()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(Path::getLogDir()));
+}
+
+int SystemProperties::suggestedBitrateKbps()
+{
+    QSettings settings;
+    return settings.value("vibelight/suggestedBitrateKbps", 0).toInt();
 }

@@ -726,6 +726,30 @@ Flickable {
                     }
                 }
 
+                Row {
+                    // Set by the "Check connection" button in the in-stream shortcuts menu
+                    property int suggestedKbps: SystemProperties.suggestedBitrateKbps()
+
+                    width: parent.width
+                    spacing: 10
+                    visible: suggestedKbps > 0 && suggestedKbps !== StreamingPreferences.bitrateKbps
+
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: qsTr("Your last connection check suggested %1 Mbps.").arg(parent.suggestedKbps / 1000.0)
+                        font.pointSize: 10
+                        opacity: 0.8
+                    }
+
+                    Button {
+                        text: qsTr("Use %1 Mbps").arg(parent.suggestedKbps / 1000.0)
+                        onClicked: {
+                            StreamingPreferences.autoAdjustBitrate = false
+                            slider.value = Math.min(parent.suggestedKbps, slider.to)
+                        }
+                    }
+                }
+
                 Label {
                     width: parent.width
                     id: windowModeTitle

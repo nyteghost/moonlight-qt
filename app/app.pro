@@ -3,6 +3,8 @@ CONFIG += c++17
 
 unix:!macx {
     TARGET = moonlight
+} else:win32 {
+    TARGET = Vibelight
 } else {
     # On macOS, this is the name displayed in the global menu bar
     TARGET = Moonlight
@@ -192,6 +194,7 @@ SOURCES += \
     streaming/input/mouse.cpp \
     streaming/input/reltouch.cpp \
     streaming/session.cpp \
+    streaming/shortcutmenu.cpp \
     streaming/audio/audio.cpp \
     streaming/audio/renderers/sdlaud.cpp \
     gui/computermodel.cpp \
@@ -229,6 +232,7 @@ HEADERS += \
     settings/streamingpreferences.h \
     streaming/input/input.h \
     streaming/session.h \
+    streaming/shortcutmenu.h \
     streaming/audio/renderers/renderer.h \
     streaming/audio/renderers/sdl.h \
     gui/computermodel.h \
@@ -547,8 +551,8 @@ unix:!macx: {
 win32 {
     RC_ICONS = moonlight.ico
     QMAKE_TARGET_COMPANY = Moonlight Game Streaming Project
-    QMAKE_TARGET_DESCRIPTION = Moonlight Game Streaming Client
-    QMAKE_TARGET_PRODUCT = Moonlight
+    QMAKE_TARGET_DESCRIPTION = Vibelight Game Streaming Client (fork of Moonlight, written with Claude)
+    QMAKE_TARGET_PRODUCT = Vibelight
 
     CONFIG -= embed_manifest_exe
     QMAKE_LFLAGS += /MANIFEST:embed /MANIFESTINPUT:$${PWD}/Moonlight.exe.manifest

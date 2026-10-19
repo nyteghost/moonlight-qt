@@ -1,6 +1,7 @@
 #include "session.h"
 #include "settings/streamingpreferences.h"
 #include "streaming/streamutils.h"
+#include "streaming/shortcutmenu.h"
 #include "backend/richpresencemanager.h"
 
 #include <Limelight.h>
@@ -576,6 +577,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_QtWindow(nullptr),
       m_UnexpectedTermination(true), // Failure prior to streaming is unexpected
       m_InputHandler(nullptr),
+      m_ShortcutMenu(nullptr),
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
       m_ShouldExit(false),
@@ -972,7 +974,7 @@ void Session::emitLaunchWarning(QString text)
 bool Session::validateLaunch(SDL_Window* testWindow)
 {
     if (!m_Computer->isSupportedServerVersion) {
-        emit displayLaunchError(tr("The version of GeForce Experience on %1 is not supported by this build of Moonlight. You must update Moonlight to stream from %1.").arg(m_Computer->name));
+        emit displayLaunchError(tr("The version of GeForce Experience on %1 is not supported by this build of Vibelight. You must update Vibelight to stream from %1.").arg(m_Computer->name));
         return false;
     }
 
@@ -1201,7 +1203,7 @@ bool Session::validateLaunch(SDL_Window* testWindow)
 
     // Check for unmapped gamepads
     if (!SdlInputHandler::getUnmappedGamepads().isEmpty()) {
-        emitLaunchWarning(tr("An attached gamepad has no mapping and won't be usable. Visit the Moonlight help to resolve this."));
+        emitLaunchWarning(tr("An attached gamepad has no mapping and won't be usable. Visit the Vibelight help to resolve this."));
     }
 
     // If we removed all codecs with the checks above, use H.264 as the codec of last resort.
@@ -1733,6 +1735,13 @@ void Session::flushWindowEvents()
     SDL_PushEvent(&flushEvent);
 }
 
+void Session::toggleShortcutMenu()
+{
+    if (m_ShortcutMenu != nullptr) {
+        m_ShortcutMenu->toggleFromHotkey();
+    }
+}
+
 void Session::setShouldExit(bool quitHostApp)
 {
     // If the caller has explicitly asked us to quit the host app,
@@ -1843,7 +1852,7 @@ void Session::exec()
 #ifdef Q_OS_DARWIN
     std::string windowName = QString(m_Computer->name).toStdString();
 #else
-    std::string windowName = QString(m_Computer->name + " - Moonlight").toStdString();
+    std::string windowName = QString(m_Computer->name + " - Vibelight").toStdString();
 #endif
 
     m_Window = SDL_CreateWindow(windowName.c_str(),
@@ -1995,6 +2004,12 @@ void Session::exec()
             continue;
         }
 #endif
+        // Events that belong to the floating shortcut menu's own window must never
+        // reach the stream window / input handlers below.
+        if (m_ShortcutMenu != nullptr && m_ShortcutMenu->handleEvent(event)) {
+            continue;
+        }
+
         switch (event.type) {
         case SDL_QUIT:
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
@@ -2042,6 +2057,22 @@ void Session::exec()
             break;
 
         case SDL_WINDOWEVENT:
+            // Keep the floating shortcut menu positioned relative to the stream window
+            if (m_ShortcutMenu != nullptr) {
+                switch (event.window.event) {
+                case SDL_WINDOWEVENT_MOVED:
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                case SDL_WINDOWEVENT_RESIZED:
+                case SDL_WINDOWEVENT_MINIMIZED:
+                case SDL_WINDOWEVENT_MAXIMIZED:
+                case SDL_WINDOWEVENT_RESTORED:
+                case SDL_WINDOWEVENT_SHOWN:
+                case SDL_WINDOWEVENT_HIDDEN:
+                    m_ShortcutMenu->updatePosition();
+                    break;
+                }
+            }
+
             // Early handling of some events
             switch (event.window.event) {
             case SDL_WINDOWEVENT_FOCUS_LOST:
@@ -2239,6 +2270,20 @@ void Session::exec()
             // of recreating our decoder at the time the HDR transition happens.
             m_VideoDecoder->setHdrMode(LiGetCurrentHostDisplayHdrMode());
 
+            // Now that the stream window has its renderer, create (or re-dock) the
+            // floating shortcut button. It's created this late so it can't interfere
+            // with any window re-creation done by the renderer.
+            if (m_ShortcutMenu == nullptr && ShortcutMenu::isSupportedOnThisPlatform()) {
+                m_ShortcutMenu = new ShortcutMenu(m_Window, m_InputHandler);
+                if (!m_ShortcutMenu->isValid()) {
+                    delete m_ShortcutMenu;
+                    m_ShortcutMenu = nullptr;
+                }
+            }
+            if (m_ShortcutMenu != nullptr) {
+                m_ShortcutMenu->updatePosition();
+            }
+
             // After a window resize, we need to reset the pointer lock region
             m_InputHandler->updatePointerRegionLock();
 
@@ -2322,6 +2367,10 @@ DispatchDeferredCleanup:
 
     // Raise any keys that are still down
     m_InputHandler->raiseAllKeys();
+
+    // Destroy the floating shortcut menu before the input handler and stream window go away
+    delete m_ShortcutMenu;
+    m_ShortcutMenu = nullptr;
 
     // Destroy the input handler now. This must be destroyed
     // before allowwing the UI to continue execution or it could

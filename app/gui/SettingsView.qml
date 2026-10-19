@@ -99,11 +99,11 @@ Flickable {
         width: settingsPage.width / 2
         spacing: 15
 
-        GroupBox {
+        CardGroupBox {
             id: basicSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Basic Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Basic Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -874,12 +874,12 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
 
             id: audioSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Audio Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Audio Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -968,11 +968,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: hostSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Host Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Host Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1008,11 +1008,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: uiSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("UI Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("UI Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1317,11 +1317,11 @@ Flickable {
         width: settingsPage.width / 2
         spacing: 15
 
-        GroupBox {
+        CardGroupBox {
             id: inputSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Input Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Input Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1465,11 +1465,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: gamepadSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Gamepad Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Gamepad Settings") + "</font>"
             font.pointSize: 12
 
             Column {
@@ -1540,11 +1540,11 @@ Flickable {
             }
         }
 
-        GroupBox {
+        CardGroupBox {
             id: advancedSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            title: "<font color=\"skyblue\">" + qsTr("Advanced Settings") + "</font>"
+            title: "<font color=\"#A5B4FC\">" + qsTr("Advanced Settings") + "</font>"
             font.pointSize: 12
 
             Column {

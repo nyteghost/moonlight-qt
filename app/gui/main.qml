@@ -237,12 +237,27 @@ ApplicationWindow {
         anchors.topMargin: 5
         anchors.bottomMargin: 5
 
+        // Flat dark bar with a thin bottom border, like the Vibepollo web UI header
+        background: Rectangle {
+            color: "#0D1424"
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: "#1E2640"
+            }
+        }
+
         Label {
             id: titleLabel
             visible: toolBar.width > 700
             anchors.fill: parent
             text: stackView.currentItem.objectName
             font.pointSize: 20
+            font.weight: Font.DemiBold
+            color: "#E2E8F0"
             elide: Label.ElideRight
             horizontalAlignment: Qt.AlignHCenter
             verticalAlignment: Qt.AlignVCenter

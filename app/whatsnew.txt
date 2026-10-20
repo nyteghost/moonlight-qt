@@ -1,4 +1,6 @@
 Shortcuts menu (Ctrl+Alt+Shift+H)
+- The shortcuts button is now a small round button that stays on top; drag it anywhere. A Settings option hides it until the hotkey.
+- Tidier layout: a short top level with Pinned & recent and categories (Remote PC, Displays, Vibelight, Tools, My shortcuts, Clipboard). Click Back or press Esc to go up.
 - Pin, recents, and your own custom shortcuts (edit them from the menu).
 - Display and monitor shortcuts such as Win+P and Win+Shift+Left/Right.
 - Check connection: watches the stream for 10 seconds and suggests a bitrate.
@@ -9,7 +11,7 @@ Shortcuts menu (Ctrl+Alt+Shift+H)
 
 Connection
 - Auto-reconnect: if the stream drops, Vibelight tries up to 3 times to resume.
-- Hold left Ctrl+Alt to release the mouse and move it outside the window.
+- Hold left Ctrl+Alt+M to release the mouse and move it outside the window.
 
 Updates and support
 - Check for updates and Download update buttons in Settings, with a bitrate suggestion.

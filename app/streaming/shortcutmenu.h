@@ -45,6 +45,19 @@ public:
     bool needsTick() const { return m_TransientUntil != 0 || m_CheckActive || m_Revealed || m_ScreenshotAt != 0 || m_GraphEnabled; }
 
 private:
+    // The menu opens on the root page, which lists the other pages as categories
+    enum Page {
+        PageRoot,
+        PageRemote,
+        PageDisplays,
+        PageVibelight,
+        PageTools,
+        PageCustom,
+        PageClipboard,
+        PageTyping,     // choose how pasted text is typed (reached from Vibelight controls)
+        PageCount
+    };
+
     enum Kind {
         KindHostKeys,   // press and release a chord on the remote PC
         KindHostText,   // type a string on the remote PC
@@ -53,9 +66,11 @@ private:
         KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
         KindClipboard,  // type one of the recent local clipboard entries on the remote PC
         KindClearClips, // forget the clipboard history
-        KindToggleTyping, // switch between Unicode text and key presses for typing text
+        KindSetTyping,  // choose Unicode text (target 0) or key presses (target 1) for typing text
         KindScreenshot, // save the current stream picture as a PNG
         KindToggleGraph, // show/hide the small latency graph
+        KindPage,       // opens another page of the menu (see Item::target)
+        KindBack,       // returns to the root page
         KindInfo        // non-clickable message (for example a config error)
     };
 
@@ -70,6 +85,8 @@ private:
         int column;
         SDL_Rect rect;
         bool pinned = false;
+        int page = 0;   // which Page this item is shown on
+        int target = 0; // for KindPage: the Page it opens
     };
 
     void buildItems();
@@ -78,7 +95,12 @@ private:
     static QString configFilePath();
     static bool parseKeyCombo(const QString& combo, std::vector<unsigned short>& out);
     void layoutItems();
-    void addTopColumn();
+    bool addTopColumn(); // returns true if a Pinned & recent column was added
+    void addCategoryRows(bool hasTopColumn);
+    void goToPage(int page);
+    static int parentPage(int page);
+    bool currentTypeAsKeys() const;
+    int itemsOnPage(int page) const;
     static std::string itemId(const Item& item);
     void togglePin(int index);
     void recordRecent(const Item& item);
@@ -102,6 +124,10 @@ private:
     std::string elapsedString() const;
     void endTransient();
     void setExpanded(bool expanded);
+    int headerHeight() const;        // the part of the window that toggles the menu / drags it
+    void applyCollapsedSize();       // round button size, plus its shape
+    void applyShape();               // round button / pill / plain rectangle (Windows)
+    void savePosition() const;
     void close(bool refocusStream);
     void dismiss(bool refocusStream);
     void execute(const Item& item);
@@ -112,6 +138,7 @@ private:
     void drawText(SDL_Surface* dst, TTF_Font* font, const char* text, SDL_Color color,
                   int x, int y, bool rightAlign = false);
     void drawChevron(SDL_Surface* dst, int cx, int cy, bool up, Uint32 color);
+    void drawArrow(SDL_Surface* dst, int cx, int cy, bool right, Uint32 color);
 
     void showWithoutActivation();
     void overrideMinimizeOnFocusLoss(bool enable);
@@ -129,7 +156,9 @@ private:
     bool m_TtfInitialized;
 
     std::vector<Item> m_Items;
-    std::vector<std::string> m_ColumnTitles;
+    std::vector<std::string> m_ColumnTitles;           // titles of the current page's columns
+    std::vector<std::string> m_PageTitles[PageCount];  // column titles for every page
+    int m_Page = 0;
     int m_NumColumns;
     std::vector<int> m_ColumnWidths; // each column is as wide as its longest label + hint
     std::vector<int> m_ColumnX;
@@ -138,7 +167,8 @@ private:
 
     bool m_Expanded;
     bool m_Shown;
-    bool m_Revealed; // The button is only visible after Ctrl+Alt+Shift+H
+    bool m_Revealed; // Hidden until Ctrl+Alt+Shift+H only when "hide until hotkey" is on
+    bool m_AutoHide = false; // Settings: keep the button hidden until the hotkey is pressed
     int m_HoverIndex;
     bool m_HeaderHover;
     int m_ConfirmIndex;

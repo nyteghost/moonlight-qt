@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 #ifdef Q_OS_WIN32
 #ifndef NOMINMAX
@@ -39,7 +40,8 @@
 
 namespace {
 
-const int kCollapsedWidth = 190;
+const int kCollapsedWidth = 190; // minimum width of the message pill
+const int kCircleSize = 40;       // the closed button is a small circle
 const int kHeaderHeight = 28;
 const int kPadding = 8;
 const int kTitleHeight = 24;
@@ -48,6 +50,8 @@ const int kMinColumnWidth = 200;
 const int kMaxColumnWidth = 440;
 const int kLabelHintGap = 18;
 const int kFooterHeight = 22;
+const int kMinExpandedWidth = 440; // wide enough for the header's title, timer and hint
+const int kArrowSpace = 22;       // room for the arrow on rows that open another page
 
 // "Vibelight 6.2.0 (80f7297)", the same version the Settings page shows
 std::string versionLine()
@@ -69,7 +73,31 @@ const SDL_Color kDangerColor = {0xF0, 0x70, 0x7A, 0xFF};
 const SDL_Color kHeaderTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
 const int kMaxRowsPerColumn = 14;
 const int kMaxCustomColumns = 2; // keeps the menu narrower than a 1920px screen
-const int kFirstCustomColumn = 3; // columns 0-2 are built in
+const int kFirstCustomColumn = 0; // custom shortcuts have their own page
+
+// Fills a rectangle with rounded corners (simple row-by-row approximation)
+void fillRoundRect(SDL_Surface* dst, SDL_Rect r, int radius, Uint32 color)
+{
+    radius = qMin(radius, qMin(r.w, r.h) / 2);
+    for (int row = 0; row < r.h; row++) {
+        // How far this row is from the nearest straight edge, measured to the row's centre
+        double dy = -1.0;
+        if (row < radius) {
+            dy = radius - row - 0.5;
+        }
+        else if (row >= r.h - radius) {
+            dy = row - (r.h - radius) + 0.5;
+        }
+        int inset = 0;
+        if (dy > 0 && radius > 0) {
+            inset = (int)(radius - std::sqrt((double)radius * radius - dy * dy) + 0.5);
+        }
+        SDL_Rect line = { r.x + inset, r.y + row, r.w - inset * 2, 1 };
+        if (line.w > 0) {
+            SDL_FillRect(dst, &line, color);
+        }
+    }
+}
 
 bool pointInRect(const SDL_Rect& r, int x, int y)
 {
@@ -163,12 +191,27 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
 #endif
     SDL_Window* window = SDL_CreateWindow("Vibelight Shortcuts",
                                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                          kCollapsedWidth, kHeaderHeight, flags);
+                                          kCircleSize, kCircleSize, flags);
     if (window == nullptr) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: SDL_CreateWindow() failed: %s", SDL_GetError());
         return;
     }
     m_Window = window;
+
+    // By default the round button is always on top of the stream. The Settings page can
+    // switch to the older behavior of staying hidden until the hotkey is pressed.
+    QSettings settings;
+    m_AutoHide = settings.value("vibelight/menuAutoHide", false).toBool();
+    m_Revealed = !m_AutoHide;
+
+    // Remember where the button was dragged to (relative to the stream window)
+    if (settings.contains("vibelight/menuOffsetX") && settings.contains("vibelight/menuOffsetY")) {
+        m_HasCustomPosition = true;
+        m_OffsetX = settings.value("vibelight/menuOffsetX").toInt();
+        m_OffsetY = settings.value("vibelight/menuOffsetY").toInt();
+    }
+
+    applyShape();
 }
 
 ShortcutMenu::~ShortcutMenu()
@@ -296,15 +339,31 @@ void ShortcutMenu::buildItems()
 {
     m_Items.clear();
     m_ConfigProblem.clear();
-    m_ColumnTitles.assign(3, std::string());
-    m_ColumnTitles[0] = "Send to remote PC";
-    m_ColumnTitles[1] = "Vibelight (Ctrl+Alt+Shift+key)";
-    m_ColumnTitles[2] = "Displays & windows";
+    for (int p = 0; p < PageCount; p++) {
+        m_PageTitles[p].clear();
+    }
+    m_PageTitles[PageRemote].push_back("Send to remote PC");
+    m_PageTitles[PageDisplays].push_back("Displays & windows");
+    m_PageTitles[PageVibelight].push_back("Vibelight (Ctrl+Alt+Shift+key)");
+    m_PageTitles[PageTools].push_back("Tools & session");
+
+    // Every page except the root starts with a Back row
+    for (int p = PageRoot + 1; p < PageCount; p++) {
+        Item back;
+        back.label = "Back";
+        back.kind = KindBack;
+        back.clientCombo = -1;
+        back.dangerous = false;
+        back.column = 0;
+        back.page = p;
+        back.rect = {0, 0, 0, 0};
+        m_Items.push_back(back);
+    }
 
     // Windows virtual-key codes
     const unsigned short CTRL = 0xA2, SHIFT = 0xA0, ALT = 0xA4, WIN = 0x5B;
 
-    auto remote = [this](const char* label, const char* hint, std::vector<unsigned short> keys) {
+    auto hostKeys = [this](int page, const char* label, const char* hint, std::vector<unsigned short> keys) {
         Item item;
         item.label = label;
         item.hint = hint;
@@ -313,34 +372,42 @@ void ShortcutMenu::buildItems()
         item.clientCombo = -1;
         item.dangerous = false;
         item.column = 0;
+        item.page = page;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     };
-    auto display = [this](const char* label, const char* hint, std::vector<unsigned short> keys) {
-        Item item;
-        item.label = label;
-        item.hint = hint;
-        item.kind = KindHostKeys;
-        item.keys = keys;
-        item.clientCombo = -1;
-        item.dangerous = false;
-        item.column = 2;
-        item.rect = {0, 0, 0, 0};
-        m_Items.push_back(item);
+    auto remote = [&hostKeys](const char* label, const char* hint, std::vector<unsigned short> keys) {
+        hostKeys(PageRemote, label, hint, keys);
     };
-    auto client = [this](const char* label, const char* hint, SdlInputHandler::KeyCombo combo, bool dangerous) {
+    auto display = [&hostKeys](const char* label, const char* hint, std::vector<unsigned short> keys) {
+        hostKeys(PageDisplays, label, hint, keys);
+    };
+    auto client = [this](int page, const char* label, const char* hint, SdlInputHandler::KeyCombo combo, bool dangerous) {
         Item item;
         item.label = label;
         item.hint = hint;
         item.kind = KindClient;
         item.clientCombo = (int)combo;
         item.dangerous = dangerous;
-        item.column = 1;
+        item.column = 0;
+        item.page = page;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    };
+    auto special = [this](int page, const char* label, const std::string& hint, Kind kind) {
+        Item item;
+        item.label = label;
+        item.hint = hint;
+        item.kind = kind;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 0;
+        item.page = page;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     };
 
-    // Column 0: keys sent to the remote PC
+    // Remote PC: keys sent to the remote PC
     remote("Ctrl+Alt+Del",             "",              {CTRL, ALT, 0x2E});
     remote("Alt+Tab",                  "",              {ALT, 0x09});
     remote("Alt+F4",                   "",              {ALT, 0x73});
@@ -354,60 +421,37 @@ void ShortcutMenu::buildItems()
     remote("Snipping tool",            "Win+Shift+S",   {WIN, SHIFT, 0x53});
     remote("Print Screen",             "",              {0x2C});
 
-    // Column 1: Vibelight's own client-side shortcuts
-    client("Release/grab mouse",       "Z", SdlInputHandler::KeyComboUngrabInput, false);
-    client("Toggle fullscreen",        "X", SdlInputHandler::KeyComboToggleFullScreen, false);
-    client("Performance stats",        "S", SdlInputHandler::KeyComboToggleStatsOverlay, false);
-    client("Mouse mode",               "M", SdlInputHandler::KeyComboToggleMouseMode, false);
-    client("Show/hide cursor",         "C", SdlInputHandler::KeyComboToggleCursorHide, false);
-    client("Minimize",                 "D", SdlInputHandler::KeyComboToggleMinimize, false);
-    client("Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
-    {
-        Item item;
-        item.label = "Typing mode";
-        item.hint = QSettings().value("vibelight/typeAsKeyPresses", false).toBool() ? "key presses" : "unicode";
-        item.kind = KindToggleTyping;
-        item.clientCombo = -1;
-        item.dangerous = false;
-        item.column = 1;
-        item.rect = {0, 0, 0, 0};
-        m_Items.push_back(item);
-    }
-    client("Pointer region lock",      "L", SdlInputHandler::KeyComboTogglePointerRegionLock, false);
-    client("System key capture",       "K", SdlInputHandler::KeyComboToggleKeyboardGrab, false);
-    {
-        Item item;
-        item.label = "Check connection";
-        item.hint = "10 s, suggests bitrate";
-        item.kind = KindConnectionCheck;
-        item.clientCombo = -1;
-        item.dangerous = false;
-        item.column = 1;
-        item.rect = {0, 0, 0, 0};
-        m_Items.push_back(item);
-    }
+    // Vibelight: its own client-side shortcuts
+    client(PageVibelight, "Release/grab mouse",       "Z", SdlInputHandler::KeyComboUngrabInput, false);
+    client(PageVibelight, "Toggle fullscreen",        "X", SdlInputHandler::KeyComboToggleFullScreen, false);
+    client(PageVibelight, "Performance stats",        "S", SdlInputHandler::KeyComboToggleStatsOverlay, false);
+    client(PageVibelight, "Mouse mode",               "M", SdlInputHandler::KeyComboToggleMouseMode, false);
+    client(PageVibelight, "Show/hide cursor",         "C", SdlInputHandler::KeyComboToggleCursorHide, false);
+    client(PageVibelight, "Minimize",                 "D", SdlInputHandler::KeyComboToggleMinimize, false);
+    client(PageVibelight, "Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
+    // Typing mode opens its own small page with the two choices
+    special(PageVibelight, "Typing mode", currentTypeAsKeys() ? "key presses" : "unicode", KindPage);
+    m_Items.back().target = PageTyping;
+    client(PageVibelight, "Pointer region lock",      "L", SdlInputHandler::KeyComboTogglePointerRegionLock, false);
+    client(PageVibelight, "System key capture",       "K", SdlInputHandler::KeyComboToggleKeyboardGrab, false);
+
+    // Tools & session
+    special(PageTools, "Check connection", "10 s, suggests bitrate", KindConnectionCheck);
 #ifdef Q_OS_WIN32
-    {
-        Item item;
-        item.label = "Screenshot of stream";
-        item.hint = "saves a PNG";
-        item.kind = KindScreenshot;
-        item.clientCombo = -1;
-        item.dangerous = false;
-        item.column = 1;
-        item.rect = {0, 0, 0, 0};
-        m_Items.push_back(item);
-
-        item.label = "Latency graph";
-        item.hint = m_GraphEnabled ? "on" : "off";
-        item.kind = KindToggleGraph;
-        m_Items.push_back(item);
-    }
+    special(PageTools, "Screenshot of stream", "saves a PNG", KindScreenshot);
+    special(PageTools, "Latency graph", m_GraphEnabled ? "on" : "off", KindToggleGraph);
 #endif
-    client("Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
-    client("Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
+    client(PageTools, "Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
+    client(PageTools, "Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
 
-    // Column 2: display and multi-monitor shortcuts sent to the remote PC
+    // Typing mode page: how pasted text reaches the remote PC (remembered per PC)
+    m_PageTitles[PageTyping].push_back("Typing mode (this PC)");
+    special(PageTyping, "Unicode text", "default, any character", KindSetTyping);
+    m_Items.back().target = 0;
+    special(PageTyping, "Key presses", "terminals, Linux hosts", KindSetTyping);
+    m_Items.back().target = 1;
+
+    // Displays & windows: display and multi-monitor shortcuts sent to the remote PC
     // (0x50 = P, 0x25 = Left arrow, 0x27 = Right arrow, 0x42 = B)
     display("Projection modes",         "Win+P",          {WIN, 0x50});
     display("Window to left monitor",   "Win+Shift+Left", {WIN, SHIFT, 0x25});
@@ -417,24 +461,23 @@ void ShortcutMenu::buildItems()
     display("Maximize window",          "Win+Up",         {WIN, 0x26});
     display("Reset graphics driver",    "Win+Ctrl+Shift+B",{WIN, CTRL, SHIFT, 0x42});
 
-    // Columns 3+: the user's own shortcuts
+    // The user's own shortcuts and recent clipboard entries
     addCustomItems();
-
-    // Column 0 (everything else moves right): pinned and recently used shortcuts
-    addTopColumn();
-
-    // Last column: recent clipboard entries
     addClipboardColumn();
+
+    // Root page: pinned and recently used shortcuts, then the categories
+    const bool hasTop = addTopColumn();
+    addCategoryRows(hasTop);
 }
 
 void ShortcutMenu::addClipboardColumn()
 {
-    if (m_ClipHistory.empty() || m_ColumnTitles.size() >= 6) {
+    if (m_ClipHistory.empty()) {
         return;
     }
 
-    const int column = (int)m_ColumnTitles.size();
-    m_ColumnTitles.push_back("Clipboard history (types it)");
+    const int column = 0;
+    m_PageTitles[PageClipboard].push_back("Clipboard history (types it)");
 
     for (const std::string& entry : m_ClipHistory) {
         // One-line preview that fits the column
@@ -466,6 +509,7 @@ void ShortcutMenu::addClipboardColumn()
         item.clientCombo = -1;
         item.dangerous = false;
         item.column = column;
+        item.page = PageClipboard;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     }
@@ -477,6 +521,7 @@ void ShortcutMenu::addClipboardColumn()
     clear.clientCombo = -1;
     clear.dangerous = false;
     clear.column = column;
+    clear.page = PageClipboard;
     clear.rect = {0, 0, 0, 0};
     m_Items.push_back(clear);
 }
@@ -633,13 +678,14 @@ void ShortcutMenu::addCustomItems()
 
     for (size_t i = 0; i < custom.size(); i++) {
         custom[i].column = kFirstCustomColumn + (int)(i / kMaxRowsPerColumn);
+        custom[i].page = PageCustom;
         m_Items.push_back(custom[i]);
     }
 
     const int customColumns = ((int)custom.size() + kMaxRowsPerColumn - 1) / kMaxRowsPerColumn;
-    m_ColumnTitles.resize(kFirstCustomColumn + customColumns);
+    m_PageTitles[PageCustom].resize(kFirstCustomColumn + customColumns);
     for (int c = 0; c < customColumns; c++) {
-        m_ColumnTitles[kFirstCustomColumn + c] = (c == 0) ? "Custom" : "Custom (cont.)";
+        m_PageTitles[PageCustom][kFirstCustomColumn + c] = (c == 0) ? "My shortcuts" : "My shortcuts (cont.)";
     }
 }
 
@@ -656,7 +702,7 @@ std::string ShortcutMenu::itemId(const Item& item)
     return std::string(1, prefix) + ":" + item.label;
 }
 
-void ShortcutMenu::addTopColumn()
+bool ShortcutMenu::addTopColumn()
 {
     QSettings settings;
     const QStringList pins = settings.value("vibelight/pinnedShortcuts").toStringList();
@@ -705,19 +751,89 @@ void ShortcutMenu::addTopColumn()
     }
 
     if (top.empty()) {
-        return;
+        return false;
     }
 
-    for (Item& item : m_Items) {
-        item.column++;
-    }
-    m_ColumnTitles.insert(m_ColumnTitles.begin(), "Pinned & recent");
+    m_PageTitles[PageRoot].push_back("Pinned & recent");
 
     for (Item& item : top) {
         item.column = 0;
+        item.page = PageRoot;
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     }
+    return true;
+}
+
+int ShortcutMenu::itemsOnPage(int page) const
+{
+    int count = 0;
+    for (const Item& item : m_Items) {
+        if (item.page == page && item.kind != KindBack && item.kind != KindInfo) {
+            count++;
+        }
+    }
+    return count;
+}
+
+void ShortcutMenu::addCategoryRows(bool hasTopColumn)
+{
+    struct Category { int page; const char* label; };
+    const Category categories[] = {
+        { PageRemote,    "Remote PC keys" },
+        { PageDisplays,  "Displays & windows" },
+        { PageVibelight, "Vibelight controls" },
+        { PageTools,     "Tools & session" },
+        { PageCustom,    "My shortcuts" },
+        { PageClipboard, "Clipboard history" },
+    };
+
+    m_PageTitles[PageRoot].push_back("Menu");
+
+    for (const Category& category : categories) {
+        const int count = itemsOnPage(category.page);
+        if (count == 0) {
+            continue;
+        }
+
+        Item item;
+        item.label = category.label;
+        item.hint = std::to_string(count);
+        item.kind = KindPage;
+        item.target = category.page;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = hasTopColumn ? 1 : 0;
+        item.page = PageRoot;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    }
+}
+
+int ShortcutMenu::parentPage(int page)
+{
+    return page == PageTyping ? PageVibelight : PageRoot;
+}
+
+bool ShortcutMenu::currentTypeAsKeys() const
+{
+    if (Session::get() != nullptr) {
+        return Session::get()->typeAsKeyPresses();
+    }
+    return QSettings().value("vibelight/typeAsKeyPresses", false).toBool();
+}
+
+void ShortcutMenu::goToPage(int page)
+{
+    m_Page = page;
+    m_HoverIndex = -1;
+    m_ConfirmIndex = -1;
+    layoutItems();
+    if (m_Expanded) {
+        SDL_SetWindowSize(m_Window, m_ExpandedWidth, m_ExpandedHeight);
+        updatePosition();
+    }
+    render();
 }
 
 void ShortcutMenu::togglePin(int index)
@@ -792,6 +908,7 @@ void ShortcutMenu::showTransient(const std::string& message, unsigned int durati
         textWidth = (int)message.size() * 9;
     }
     SDL_SetWindowSize(m_Window, qMax(kCollapsedWidth, textWidth + 28), kHeaderHeight);
+    applyShape();
 
     m_Revealed = true;
     updatePosition();
@@ -810,7 +927,7 @@ void ShortcutMenu::endTransient()
     }
 
     if (!m_Expanded) {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
 
     if (hide && !m_Expanded) {
@@ -952,14 +1069,28 @@ void ShortcutMenu::showHint()
     settings.setValue("vibelight/hintShownCount", shown + 1);
     const char letter = vibelight::sanitizeMenuHotkey(
                 QSettings().value("vibelight/menuHotkey", "H").toString().toStdString());
-    showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
+    if (m_AutoHide) {
+        showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
+    }
+    else {
+        showTransient(std::string("Click the round button or press Ctrl+Alt+Shift+") + letter + " for shortcuts", 6000);
+    }
 }
 
 void ShortcutMenu::layoutItems()
 {
+    // If the page we were on no longer has anything on it (for example the clipboard
+    // history was emptied), go back to the root page
+    if (m_Page != PageRoot && itemsOnPage(m_Page) == 0) {
+        m_Page = PageRoot;
+    }
+    m_ColumnTitles = m_PageTitles[m_Page];
+
     m_NumColumns = 1;
     for (const Item& item : m_Items) {
-        m_NumColumns = qMax(m_NumColumns, item.column + 1);
+        if (item.page == m_Page) {
+            m_NumColumns = qMax(m_NumColumns, item.column + 1);
+        }
     }
 
     // Size each column to fit its longest label plus hint, so they never overlap
@@ -974,7 +1105,13 @@ void ShortcutMenu::layoutItems()
         };
 
         for (const Item& item : m_Items) {
+            if (item.page != m_Page) {
+                continue;
+            }
             int need = 6 + textWidth(m_Font, item.pinned ? "* " + item.label : item.label) + 6;
+            if (item.kind == KindPage || item.kind == KindBack || item.kind == KindSetTyping) {
+                need += kArrowSpace;
+            }
             int hintWidth = textWidth(m_SmallFont, item.hint);
             if (hintWidth > 0) {
                 need += kLabelHintGap + hintWidth;
@@ -995,11 +1132,20 @@ void ShortcutMenu::layoutItems()
         m_ColumnX[c] = totalWidth;
         totalWidth += m_ColumnWidths[c] + kPadding;
     }
+    if (totalWidth < kMinExpandedWidth) {
+        // Give the extra room to the last column so the rows stay tidy
+        m_ColumnWidths[m_NumColumns - 1] += kMinExpandedWidth - totalWidth;
+        totalWidth = kMinExpandedWidth;
+    }
 
     std::vector<int> rowY(m_NumColumns, kHeaderHeight + kPadding + kTitleHeight);
     int tallest = rowY[0];
 
     for (Item& item : m_Items) {
+        if (item.page != m_Page) {
+            item.rect = {0, 0, 0, 0};
+            continue;
+        }
         item.rect.x = m_ColumnX[item.column];
         item.rect.y = rowY[item.column];
         item.rect.w = m_ColumnWidths[item.column];
@@ -1129,13 +1275,59 @@ void ShortcutMenu::setExpanded(bool expanded)
 
     if (expanded) {
         SDL_SetWindowSize(m_Window, m_ExpandedWidth, m_ExpandedHeight);
+        applyShape();
     }
     else {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
 
     updatePosition();
     render();
+}
+
+int ShortcutMenu::headerHeight() const
+{
+    // The open menu and the message pill have a bar on top; the closed button is all "header"
+    return (m_Expanded || m_TransientUntil != 0) ? kHeaderHeight : kCircleSize;
+}
+
+void ShortcutMenu::applyCollapsedSize()
+{
+    SDL_SetWindowSize(m_Window, kCircleSize, kCircleSize);
+    applyShape();
+}
+
+void ShortcutMenu::savePosition() const
+{
+    QSettings settings;
+    settings.setValue("vibelight/menuOffsetX", m_OffsetX);
+    settings.setValue("vibelight/menuOffsetY", m_OffsetY);
+}
+
+void ShortcutMenu::applyShape()
+{
+#ifdef Q_OS_WIN32
+    // Make the closed button a real circle and the message a pill by clipping the window
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (m_Window == nullptr || !SDL_GetWindowWMInfo(m_Window, &info)) {
+        return;
+    }
+
+    HWND hwnd = info.info.win.window;
+    int w = 0, h = 0;
+    SDL_GetWindowSize(m_Window, &w, &h);
+
+    if (m_Expanded) {
+        SetWindowRgn(hwnd, nullptr, TRUE);
+    }
+    else if (m_TransientUntil != 0) {
+        SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, w + 1, h + 1, h, h), TRUE);
+    }
+    else {
+        SetWindowRgn(hwnd, CreateEllipticRgn(0, 0, w + 1, h + 1), TRUE);
+    }
+#endif
 }
 
 void ShortcutMenu::close(bool refocusStream)
@@ -1165,11 +1357,11 @@ void ShortcutMenu::dismiss(bool refocusStream)
 
     endDrag();
     m_HeaderHover = false;
-    m_Revealed = false;
+    m_Revealed = !m_AutoHide;
     m_TransientUntil = 0;
     m_TransientOwnsReveal = false;
     if (!m_Expanded) {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
     updatePosition();
     overrideMinimizeOnFocusLoss(false);
@@ -1185,8 +1377,8 @@ void ShortcutMenu::toggleFromHotkey()
                 "Shortcut menu: toggle requested (revealed=%d, shown=%d, expanded=%d, transient=%d)",
                 (int)m_Revealed, (int)m_Shown, (int)m_Expanded, (int)(m_TransientUntil != 0));
 
-    if (m_Revealed && m_TransientUntil == 0) {
-        // Pressing the hotkey again hides the button
+    if (m_Revealed && m_TransientUntil == 0 && (m_AutoHide || m_Expanded)) {
+        // Pressing the hotkey again closes the menu (and hides the button if it is set to hide)
         dismiss(true);
         return;
     }
@@ -1201,6 +1393,7 @@ void ShortcutMenu::toggleFromHotkey()
     if (Session::get() != nullptr) {
         m_HostInfo = Session::get()->getStreamSummary();
     }
+    m_Page = PageRoot;
     rebuildItems();
 
     m_Revealed = true;
@@ -1272,14 +1465,6 @@ void ShortcutMenu::execute(const Item& itemRef)
         return;
     }
 
-    if (item.kind == KindToggleTyping) {
-        QSettings settings;
-        const bool asKeys = !settings.value("vibelight/typeAsKeyPresses", false).toBool();
-        settings.setValue("vibelight/typeAsKeyPresses", asKeys);
-        showTransient(asKeys ? "Typing as key presses" : "Typing as Unicode text", 2500);
-        return;
-    }
-
     switch (item.kind) {
     case KindClient:
         m_Input->performSpecialKeyCombo((SdlInputHandler::KeyCombo)item.clientCombo);
@@ -1310,7 +1495,7 @@ int ShortcutMenu::hitTest(int x, int y) const
     }
 
     for (size_t i = 0; i < m_Items.size(); i++) {
-        if (pointInRect(m_Items[i].rect, x, y)) {
+        if (m_Items[i].page == m_Page && pointInRect(m_Items[i].rect, x, y)) {
             return (int)i;
         }
     }
@@ -1319,7 +1504,7 @@ int ShortcutMenu::hitTest(int x, int y) const
 
 void ShortcutMenu::handleClick(int x, int y)
 {
-    if (y < kHeaderHeight) {
+    if (y < headerHeight()) {
         if (m_Expanded) {
             close(true);
         }
@@ -1337,6 +1522,30 @@ void ShortcutMenu::handleClick(int x, int y)
 
     const Item& item = m_Items[index];
     if (item.kind == KindInfo) {
+        return;
+    }
+    if (item.kind == KindPage) {
+        goToPage(item.target);
+        return;
+    }
+    if (item.kind == KindBack) {
+        goToPage(parentPage(m_Page));
+        return;
+    }
+    if (item.kind == KindSetTyping) {
+        const bool asKeys = (item.target == 1);
+        if (Session::get() != nullptr) {
+            Session::get()->setTypeAsKeyPresses(asKeys);
+        }
+        else {
+            QSettings().setValue("vibelight/typeAsKeyPresses", asKeys);
+        }
+
+        // Rebuild so the Typing mode row shows the new choice, then return to its page
+        const int returnTo = parentPage(m_Page);
+        m_Page = returnTo;
+        rebuildItems();
+        goToPage(returnTo);
         return;
     }
     if (item.dangerous && m_ConfirmIndex != index) {
@@ -1403,7 +1612,13 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
     // key press never reaches the remote PC.
     if ((event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) && event.key.keysym.sym == SDLK_ESCAPE) {
         if (event.type == SDL_KEYDOWN && m_Expanded) {
-            dismiss(true);
+            if (m_Page != PageRoot) {
+                // Esc goes back one level first
+                goToPage(parentPage(m_Page));
+            }
+            else {
+                dismiss(true);
+            }
             m_SwallowEscUp = true;
             return true;
         }
@@ -1466,7 +1681,7 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         }
         else {
             int hover = hitTest(event.motion.x, event.motion.y);
-            bool headerHover = event.motion.y < kHeaderHeight;
+            bool headerHover = event.motion.y < headerHeight();
             if (hover != m_HoverIndex || headerHover != m_HeaderHover) {
                 m_HoverIndex = hover;
                 m_HeaderHover = headerHover;
@@ -1479,12 +1694,12 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.button.windowID != id) {
             return false;
         }
-        if (event.button.button == SDL_BUTTON_RIGHT && m_Expanded && event.button.y >= kHeaderHeight) {
+        if (event.button.button == SDL_BUTTON_RIGHT && m_Expanded && event.button.y >= headerHeight()) {
             // Right-click pins or unpins a shortcut
             togglePin(hitTest(event.button.x, event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_LEFT) {
-            if (event.button.y < kHeaderHeight) {
+            if (event.button.y < headerHeight()) {
                 // Might become a drag or a click; decided on button up
                 beginDrag(event.button.x, event.button.y);
             }
@@ -1501,6 +1716,9 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.button.button == SDL_BUTTON_LEFT && m_MouseDown) {
             bool wasDragging = m_Dragging;
             endDrag();
+            if (wasDragging) {
+                savePosition();
+            }
             if (!wasDragging) {
                 handleClick(event.button.x, event.button.y);
             }
@@ -1551,6 +1769,16 @@ void ShortcutMenu::drawChevron(SDL_Surface* dst, int cx, int cy, bool up, Uint32
     }
 }
 
+void ShortcutMenu::drawArrow(SDL_Surface* dst, int cx, int cy, bool right, Uint32 color)
+{
+    // A small solid triangle pointing right (open) or left (back)
+    for (int i = 0; i < 5; i++) {
+        int half = 4 - i;
+        SDL_Rect col = { right ? cx - 2 + i : cx + 2 - i, cy - half, 1, half * 2 + 1 };
+        SDL_FillRect(dst, &col, color);
+    }
+}
+
 void ShortcutMenu::render()
 {
     if (m_Window == nullptr || !m_Shown) {
@@ -1567,6 +1795,24 @@ void ShortcutMenu::render()
     Uint32 headerColor = m_HeaderHover ? SDL_MapRGB(s->format, 0x7A, 0x7D, 0xF5) : SDL_MapRGB(s->format, 0x63, 0x66, 0xF1);
     Uint32 hoverColor = SDL_MapRGB(s->format, 0x1A, 0x23, 0x40);
     Uint32 chevronColor = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
+
+    // Closed: a small round button with a "menu" icon
+    if (!m_Expanded && m_TransientUntil == 0) {
+        SDL_FillRect(s, nullptr, background);
+        SDL_Rect whole = { 0, 0, s->w, s->h };
+        fillRoundRect(s, whole, s->w / 2, SDL_MapRGB(s->format, 0xA5, 0xB4, 0xFC));
+        SDL_Rect disc = { 2, 2, s->w - 4, s->h - 4 };
+        fillRoundRect(s, disc, disc.w / 2, headerColor);
+
+        Uint32 white = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
+        for (int bar = -1; bar <= 1; bar++) {
+            SDL_Rect line = { s->w / 2 - 8, s->h / 2 - 1 + bar * 5, 16, 2 };
+            fillRoundRect(s, line, 1, white);
+        }
+
+        SDL_UpdateWindowSurface(m_Window);
+        return;
+    }
 
     SDL_FillRect(s, nullptr, border);
     SDL_Rect inner = { 1, 1, s->w - 2, s->h - 2 };
@@ -1590,7 +1836,8 @@ void ShortcutMenu::render()
                  (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2);
     }
     if (m_Expanded) {
-        const char* hintText = "right-click to pin  |  Esc to close";
+        const char* hintText = (m_Page == PageRoot) ? "right-click to pin  |  Esc to close"
+                                                    : "right-click to pin  |  Esc to go back";
         drawText(s, m_SmallFont, hintText, kHeaderTextColor,
                  s->w - 34, (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2, true);
 
@@ -1614,10 +1861,20 @@ void ShortcutMenu::render()
 
     if (m_Expanded) {
         for (int c = 0; c < m_NumColumns && c < (int)m_ColumnTitles.size(); c++) {
+            const int colX = (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding);
             drawText(s, m_SmallFont, m_ColumnTitles[c].c_str(), kTitleColor,
-                     (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding) + 4,
-                     kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2);
+                     colX + 8,
+                     kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2 - 2);
+
+            // Thin divider under the title
+            const int colW = (c < (int)m_ColumnWidths.size() ? m_ColumnWidths[c] : kMinColumnWidth);
+            SDL_Rect divider = { colX + 6, kHeaderHeight + kPadding + kTitleHeight - 4, colW - 12, 1 };
+            SDL_FillRect(s, &divider, border);
         }
+
+        // Thin divider above the footer
+        SDL_Rect footerLine = { 8, s->h - kFooterHeight, s->w - 16, 1 };
+        SDL_FillRect(s, &footerLine, border);
 
         // Version and build, bottom right
         drawText(s, m_SmallFont, versionLine().c_str(), kHintColor,
@@ -1625,9 +1882,15 @@ void ShortcutMenu::render()
 
         for (size_t i = 0; i < m_Items.size(); i++) {
             const Item& item = m_Items[i];
+            if (item.page != m_Page) {
+                continue;
+            }
 
             if ((int)i == m_HoverIndex && item.kind != KindInfo) {
-                SDL_FillRect(s, const_cast<SDL_Rect*>(&item.rect), hoverColor);
+                SDL_Rect hoverRect = { item.rect.x + 2, item.rect.y + 1, item.rect.w - 4, item.rect.h - 2 };
+                fillRoundRect(s, hoverRect, 5, hoverColor);
+                SDL_Rect accentBar = { hoverRect.x + 1, hoverRect.y + 5, 3, hoverRect.h - 10 };
+                fillRoundRect(s, accentBar, 1, SDL_MapRGB(s->format, 0x63, 0x66, 0xF1));
             }
 
             bool confirming = ((int)i == m_ConfirmIndex);
@@ -1635,16 +1898,45 @@ void ShortcutMenu::render()
             std::string labelText = item.pinned ? "* " + item.label : item.label;
             const char* label = confirming ? "Click again to confirm" : labelText.c_str();
 
+            const bool isRadio = (item.kind == KindSetTyping);
+            const bool isBack = (item.kind == KindBack);
+            const bool isPage = (item.kind == KindPage);
+            const int labelX = item.rect.x + 6 + ((isBack || isRadio) ? kArrowSpace : 0);
+            const int rightEdge = item.rect.x + item.rect.w - 6 - (isPage ? kArrowSpace : 0);
+            if (isRadio) {
+                // Radio button: filled accent dot with a white centre when selected, a ring otherwise
+                const bool selected = ((item.target == 1) == currentTypeAsKeys());
+                SDL_Rect outer = { item.rect.x + 9, item.rect.y + item.rect.h / 2 - 5, 10, 10 };
+                fillRoundRect(s, outer, 5, selected ? SDL_MapRGB(s->format, 0x63, 0x66, 0xF1)
+                                                    : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
+                SDL_Rect inner2 = { outer.x + (selected ? 3 : 2), outer.y + (selected ? 3 : 2),
+                                    selected ? 4 : 6, selected ? 4 : 6 };
+                fillRoundRect(s, inner2, selected ? 2 : 3, selected ? SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF) : background);
+            }
+            else if (isBack) {
+                drawArrow(s, item.rect.x + 14, item.rect.y + item.rect.h / 2, false, SDL_MapRGB(s->format, kTitleColor.r, kTitleColor.g, kTitleColor.b));
+            }
+            else if (isPage) {
+                drawArrow(s, item.rect.x + item.rect.w - 14, item.rect.y + item.rect.h / 2, true, SDL_MapRGB(s->format, kTitleColor.r, kTitleColor.g, kTitleColor.b));
+            }
+
             drawText(s, m_Font, label, color,
-                     item.rect.x + 6, item.rect.y + (item.rect.h - TTF_FontHeight(m_Font)) / 2);
+                     labelX, item.rect.y + (item.rect.h - TTF_FontHeight(m_Font)) / 2);
             int labelWidth = 0, hintWidth = 0, unusedHeight = 0;
             TTF_SizeUTF8(m_Font, labelText.c_str(), &labelWidth, &unusedHeight);
             TTF_SizeUTF8(m_SmallFont, item.hint.c_str(), &hintWidth, &unusedHeight);
-            const bool hintFits = 6 + labelWidth + kLabelHintGap + hintWidth + 6 <= item.rect.w;
+            const bool hintFits = labelX + labelWidth + kLabelHintGap + hintWidth <= rightEdge;
             if (!confirming && hintFits) {
                 drawText(s, m_SmallFont, item.hint.c_str(), kHintColor,
-                         item.rect.x + item.rect.w - 6,
+                         rightEdge,
                          item.rect.y + (item.rect.h - TTF_FontHeight(m_SmallFont)) / 2, true);
+
+                // A small green or grey dot makes on/off settings easy to read at a glance
+                if (item.kind == KindToggleGraph) {
+                    SDL_Rect dot = { rightEdge - hintWidth - 14, item.rect.y + item.rect.h / 2 - 4, 8, 8 };
+                    fillRoundRect(s, dot, 4, m_GraphEnabled ? SDL_MapRGB(s->format, 0x34, 0xD3, 0x99)
+                                                            : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
+                }
             }
         }
     }

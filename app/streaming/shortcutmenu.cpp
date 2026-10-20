@@ -19,6 +19,7 @@
 #include <Limelight.h>
 
 #include "streaming/session.h"
+#include "streaming/vibelight_logic.h"
 #include "streaming/video/decoder.h"
 
 #include <cstdlib>
@@ -908,20 +909,7 @@ void ShortcutMenu::finishConnectionCheck()
 
     double dropPercent = 100.0 * dropped / frames;
     double currentMbps = session->getConfiguredBitrateKbps() / 1000.0;
-    double suggestedMbps = currentMbps;
-
-    if (dropPercent >= 3.0) {
-        suggestedMbps = currentMbps * 0.6;
-    }
-    else if (dropPercent >= 1.0) {
-        suggestedMbps = currentMbps * 0.8;
-    }
-    else if (dropPercent < 0.3 && (snapshot.rttMs == 0 || snapshot.rttMs < 30) &&
-             snapshot.videoMbps >= currentMbps * 0.8) {
-        // Clean, and the stream is actually using what it was given: there may be room to grow
-        suggestedMbps = qMin(currentMbps * 1.25, 150.0);
-    }
-    suggestedMbps = qMax(5.0, (double)(int)(suggestedMbps + 0.5));
+    const double suggestedMbps = vibelight::suggestBitrateMbps(currentMbps, dropPercent, snapshot.rttMs, snapshot.videoMbps);
 
     char buf[160];
     if (dropPercent >= 1.0) {

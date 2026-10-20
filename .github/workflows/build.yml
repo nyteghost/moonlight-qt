@@ -29,6 +29,39 @@ jobs:
           CI_VERSION=`echo ${GITHUB_SHA} | cut -c1-6`
           echo "ci_version=${CI_VERSION}" >> "${GITHUB_OUTPUT}"
 
+  # Unit tests for the Qt-free logic (typing table, bitrate suggestion). Takes seconds.
+  logic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I app tests/logic_tests.cpp -o logic_tests
+          ./logic_tests
+
+  # Checks every QML file for syntax errors, which the C++ build can't see. Problems here only
+  # show up when you open the page they belong to, so catch them before then.
+  qml-lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # advisory until its output has been checked on a few runs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.12.0
+          cache: true
+          set-env: false
+      - name: Show raw qmllint output for one file (diagnostics)
+        shell: bash
+        run: |
+          which qmllint
+          qmllint --version || true
+          qmllint --json - -I app/gui app/gui/StreamSegue.qml | head -c 4000 || true
+      - name: Lint QML
+        shell: bash
+        run: python3 scripts/qml_lint.py
+
   # Linux AppImage, Steam Link, macOS and Windows arm64 are slow, so they only run for
   # master and manual runs.
   build-appimage:

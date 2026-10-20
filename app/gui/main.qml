@@ -418,8 +418,15 @@ ApplicationWindow {
                     downloading = false
                     downloadedPath = path
                     ToolTip.text = qsTr("Vibelight %1 downloaded. Click to open the folder.").arg(newVersion)
-                    updateDownloadedDialog.text = qsTr("Vibelight %1 was downloaded to:").arg(newVersion) + "\n\n" + path +
-                                                  "\n\n" + qsTr("Click OK to open the folder. Close Vibelight, then unzip it into a new folder. Keep your portable.dat file there to keep your settings.")
+                    updateDownloadedDialog.canInstall = AutoUpdateChecker.canInstallUpdate()
+                    if (updateDownloadedDialog.canInstall) {
+                        updateDownloadedDialog.text = qsTr("Vibelight %1 was downloaded.").arg(newVersion) +
+                                                      "\n\n" + qsTr("Install it now? Vibelight will close, update itself and start again. Your settings are kept, and the old version is saved in the .update-backup folder.")
+                    }
+                    else {
+                        updateDownloadedDialog.text = qsTr("Vibelight %1 was downloaded to:").arg(newVersion) + "\n\n" + path +
+                                                      "\n\n" + qsTr("Click OK to open the folder. Close Vibelight, then unzip it into a new folder. Keep your portable.dat file there to keep your settings.")
+                    }
                     updateDownloadedDialog.open()
                 }
 
@@ -555,9 +562,22 @@ ApplicationWindow {
 
     NavigableMessageDialog {
         id: updateDownloadedDialog
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        // OK opens the folder containing the download, Cancel just closes the dialog
-        onAccepted: AutoUpdateChecker.revealDownload()
+        property bool canInstall: false
+        standardButtons: canInstall ? (Dialog.Yes | Dialog.No) : (Dialog.Ok | Dialog.Cancel)
+        // Yes installs the update. Otherwise OK opens the folder containing the download, and
+        // Cancel/No just close the dialog
+        onAccepted: {
+            if (canInstall) {
+                if (!AutoUpdateChecker.installUpdateAndRestart()) {
+                    updateFailedDialog.text = qsTr("Vibelight could not start the updater. Nothing was changed. You can still unzip the downloaded update by hand.")
+                    updateFailedDialog.open()
+                    AutoUpdateChecker.revealDownload()
+                }
+            }
+            else {
+                AutoUpdateChecker.revealDownload()
+            }
+        }
     }
 
     ErrorMessageDialog {

@@ -85,6 +85,9 @@ Main files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), `ap
 ### Sharper text
 Blurry text when remoted in usually comes from the stream resolution not matching your screen, too low a bitrate, or the codec. Things to try, roughly in order: stream at your monitor's native resolution (fullscreen, or at least 1:1); raise the bitrate (and use **Check connection** to see how much your network can take); use HEVC or AV1 instead of H.264; try **YUV 4:4:4** if your host supports it (Sunshine only; it needs a higher bitrate); and on the host, prefer Windows display scaling of 100% or 150% over odd values like 125%.
 
+## Search settings
+The box at the top of **Settings** filters the sections as you type: only sections that contain every word you typed stay visible (for example `mouse`, or `bitrate slider`). Clear the box, or press Esc in it, to see everything again.
+
 ## Report a problem
 **Settings → Support → Report a problem** saves a diagnostics file to your Downloads folder and opens a new GitHub issue in your browser with your version and system details filled in. Drag the diagnostics file into the issue. The file can contain PC names and local IP addresses, so look it over before sharing. The repository needs Issues turned on (**Settings → General → Features → Issues** on GitHub).
 

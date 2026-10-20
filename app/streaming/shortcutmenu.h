@@ -139,6 +139,7 @@ private:
                   int x, int y, bool rightAlign = false);
     void drawChevron(SDL_Surface* dst, int cx, int cy, bool up, Uint32 color);
     void drawArrow(SDL_Surface* dst, int cx, int cy, bool right, Uint32 color);
+    void drawLogoButton(SDL_Surface* dst, bool hover);
 
     void showWithoutActivation();
     void overrideMinimizeOnFocusLoss(bool enable);
@@ -168,6 +169,7 @@ private:
     bool m_Expanded;
     bool m_Shown;
     bool m_Revealed; // Hidden until Ctrl+Alt+Shift+H only when "hide until hotkey" is on
+    bool m_UserHidden = false; // the hotkey hid the button (default mode)
     bool m_AutoHide = false; // Settings: keep the button hidden until the hotkey is pressed
     int m_HoverIndex;
     bool m_HeaderHover;

@@ -297,15 +297,15 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
         return;
     }
 
-    // Holding left Alt + Ctrl + M (without Shift) frees the mouse so it can leave the window
-    // or reach the shortcuts button. The M key itself is not sent to the host. Left Alt only,
-    // since AltGr reports as Ctrl+RAlt on many layouts. Ctrl+Alt+Shift+M (mouse mode) is
-    // unaffected.
+    // Holding left Alt + Ctrl + Z (without Shift) frees the mouse so it can leave the window
+    // or reach the shortcuts button. The Z key itself is not sent to the host. Left Alt only,
+    // since AltGr reports as Ctrl+RAlt on many layouts. Ctrl+Alt+Shift+Z (release/grab toggle)
+    // and the other Ctrl+Alt+Shift shortcuts are unaffected.
     bool swallowReleaseKey = false;
     if (m_CtrlAltReleaseEnabled) {
         const bool ctrlAltOnly = (event->keysym.mod & KMOD_CTRL) && (event->keysym.mod & KMOD_LALT) &&
                                  !(event->keysym.mod & KMOD_SHIFT);
-        if (event->keysym.sym == SDLK_m) {
+        if (event->keysym.sym == SDLK_z) {
             if (event->state == SDL_PRESSED && ctrlAltOnly) {
                 m_ReleaseKeyHeld = true;
                 m_SwallowReleaseKeyUp = true;

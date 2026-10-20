@@ -1073,7 +1073,7 @@ void ShortcutMenu::showHint()
         showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
     }
     else {
-        showTransient(std::string("Click the round button or press Ctrl+Alt+Shift+") + letter + " for shortcuts", 6000);
+        showTransient(std::string("Click the round button for shortcuts. Ctrl+Alt+Shift+") + letter + " hides or shows it", 6000);
     }
 }
 
@@ -1357,7 +1357,7 @@ void ShortcutMenu::dismiss(bool refocusStream)
 
     endDrag();
     m_HeaderHover = false;
-    m_Revealed = !m_AutoHide;
+    m_Revealed = !m_AutoHide && !m_UserHidden;
     m_TransientUntil = 0;
     m_TransientOwnsReveal = false;
     if (!m_Expanded) {
@@ -1377,8 +1377,29 @@ void ShortcutMenu::toggleFromHotkey()
                 "Shortcut menu: toggle requested (revealed=%d, shown=%d, expanded=%d, transient=%d)",
                 (int)m_Revealed, (int)m_Shown, (int)m_Expanded, (int)(m_TransientUntil != 0));
 
+    if (!m_AutoHide) {
+        // Default mode: the hotkey hides the button (closing the menu if it is open) and
+        // shows it again when it is hidden. Click the button to open the menu.
+        m_TransientUntil = 0;
+        m_TransientOwnsReveal = false;
+        m_TransientMessage.clear();
+
+        const bool hide = m_Revealed;
+        m_UserHidden = hide;
+        if (hide) {
+            dismiss(true);
+        }
+        else {
+            m_Revealed = true;
+            applyCollapsedSize();
+            updatePosition();
+            render();
+        }
+        return;
+    }
+
     if (m_Revealed && m_TransientUntil == 0 && (m_AutoHide || m_Expanded)) {
-        // Pressing the hotkey again closes the menu (and hides the button if it is set to hide)
+        // Pressing the hotkey again closes the menu and hides the button
         dismiss(true);
         return;
     }
@@ -1779,6 +1800,70 @@ void ShortcutMenu::drawArrow(SDL_Surface* dst, int cx, int cy, bool right, Uint3
     }
 }
 
+// The closed button: the Vibelight icon (coral disc, cream crescent moon, two sparkles),
+// drawn pixel by pixel with a little supersampling so the shapes look smooth.
+void ShortcutMenu::drawLogoButton(SDL_Surface* dst, bool hover)
+{
+    const double size = dst->w;         // the closed button is square
+    const double scale = size / 40.0;   // the shapes below are laid out on a 40px button
+
+    auto inCircle = [](double x, double y, double cx, double cy, double r) {
+        return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+    };
+    auto inStar = [](double x, double y, double cx, double cy, double arm) {
+        // A four-pointed star with concave sides
+        double dx = std::fabs(x - cx) / arm, dy = std::fabs(y - cy) / arm;
+        return dx <= 1.0 && dy <= 1.0 && std::sqrt(dx) + std::sqrt(dy) <= 1.0;
+    };
+    auto inLogo = [&](double x, double y) {
+        x /= scale;
+        y /= scale;
+        const bool moon = inCircle(x, y, 17.6, 20.7, 11.7) && !inCircle(x, y, 23.4, 18.0, 9.8);
+        return moon || inStar(x, y, 28.8, 11.9, 4.8) || inStar(x, y, 32.2, 19.9, 2.2);
+    };
+
+    const double lift = hover ? 18.0 : 0.0;   // hovering lightens the disc a little
+    const int samples = 3;
+
+    for (int py = 0; py < dst->h; py++) {
+        for (int px = 0; px < dst->w; px++) {
+            // Outside the circle: window background (clipped away on Windows)
+            if (!inCircle(px + 0.5, py + 0.5, size / 2, size / 2, size / 2)) {
+                SDL_Rect pixel = { px, py, 1, 1 };
+                SDL_FillRect(dst, &pixel, SDL_MapRGB(dst->format, 0x0D, 0x14, 0x24));
+                continue;
+            }
+
+            // Coral gradient from the top left to the bottom right
+            const double t = (px + py) / (2.0 * size);
+            double r = 0xF0 + (0xD2 - 0xF0) * t + lift;
+            double g = 0x9C + (0x64 - 0x9C) * t + lift;
+            double b = 0x7A + (0x3E - 0x7A) * t + lift;
+
+            int covered = 0;
+            for (int sy = 0; sy < samples; sy++) {
+                for (int sx = 0; sx < samples; sx++) {
+                    if (inLogo(px + (sx + 0.5) / samples, py + (sy + 0.5) / samples)) {
+                        covered++;
+                    }
+                }
+            }
+            const double a = covered / (double)(samples * samples);
+
+            // Cream mark over the coral disc
+            r += (0xFF - r) * a;
+            g += (0xF1 - g) * a;
+            b += (0xE0 - b) * a;
+
+            SDL_Rect pixel = { px, py, 1, 1 };
+            SDL_FillRect(dst, &pixel, SDL_MapRGB(dst->format,
+                                                 (Uint8)qBound(0.0, r, 255.0),
+                                                 (Uint8)qBound(0.0, g, 255.0),
+                                                 (Uint8)qBound(0.0, b, 255.0)));
+        }
+    }
+}
+
 void ShortcutMenu::render()
 {
     if (m_Window == nullptr || !m_Shown) {
@@ -1798,18 +1883,7 @@ void ShortcutMenu::render()
 
     // Closed: a small round button with a "menu" icon
     if (!m_Expanded && m_TransientUntil == 0) {
-        SDL_FillRect(s, nullptr, background);
-        SDL_Rect whole = { 0, 0, s->w, s->h };
-        fillRoundRect(s, whole, s->w / 2, SDL_MapRGB(s->format, 0xA5, 0xB4, 0xFC));
-        SDL_Rect disc = { 2, 2, s->w - 4, s->h - 4 };
-        fillRoundRect(s, disc, disc.w / 2, headerColor);
-
-        Uint32 white = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
-        for (int bar = -1; bar <= 1; bar++) {
-            SDL_Rect line = { s->w / 2 - 8, s->h / 2 - 1 + bar * 5, 16, 2 };
-            fillRoundRect(s, line, 1, white);
-        }
-
+        drawLogoButton(s, m_HeaderHover);
         SDL_UpdateWindowSurface(m_Window);
         return;
     }

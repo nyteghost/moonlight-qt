@@ -42,7 +42,7 @@ public:
 
     // Call regularly from the event loop; hides transient messages when they expire.
     void tick();
-    bool needsTick() const { return m_TransientUntil != 0 || m_CheckActive || m_Revealed; }
+    bool needsTick() const { return m_TransientUntil != 0 || m_CheckActive || m_Revealed || m_ScreenshotAt != 0 || m_GraphEnabled; }
 
 private:
     enum Kind {
@@ -51,6 +51,10 @@ private:
         KindClient,     // one of Vibelight's own Ctrl+Alt+Shift+key actions
         KindOpenConfig, // open the custom shortcuts file in the default editor
         KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
+        KindClipboard,  // type one of the recent local clipboard entries on the remote PC
+        KindClearClips, // forget the clipboard history
+        KindScreenshot, // save the current stream picture as a PNG
+        KindToggleGraph, // show/hide the small latency graph
         KindInfo        // non-clickable message (for example a config error)
     };
 
@@ -78,6 +82,20 @@ private:
     void togglePin(int index);
     void recordRecent(const Item& item);
     void showTransient(const std::string& message, unsigned int durationMs);
+
+    // Clipboard history (kept in memory only, never written to disk)
+    void pollClipboard();
+    void addClipboardColumn();
+
+    // Screenshot of the stream (Windows)
+    void captureScreenshot();
+
+    // Small latency graph in its own click-through window (Windows)
+    void toggleGraph();
+    void updateGraphWindow();
+    void destroyGraphWindow();
+    void sampleGraph();
+    void renderGraph();
     void startConnectionCheck();
     void finishConnectionCheck();
     std::string elapsedString() const;
@@ -156,4 +174,26 @@ private:
 
     bool m_HintOverridden;
     char* m_SavedHint;
+
+    // Host summary shown in the open menu's header ("PC name | 1920x1080@60 | HEVC")
+    std::string m_HostInfo;
+
+    // Clipboard history, newest first
+    std::vector<std::string> m_ClipHistory;
+    unsigned int m_LastClipPoll = 0;
+
+    // Screenshot scheduled for this SDL tick (0 = none), so the menu can get out of the picture
+    unsigned int m_ScreenshotAt = 0;
+
+    // Latency graph
+    bool m_GraphEnabled = false;
+    SDL_Window* m_GraphWindow = nullptr;
+    bool m_GraphShown = false;
+    unsigned int m_GraphHiddenUntil = 0;
+    unsigned int m_GraphLastSample = 0;
+    bool m_GraphHavePrev = false;
+    unsigned int m_GraphPrevFrames = 0;
+    unsigned int m_GraphPrevDropped = 0;
+    std::vector<int> m_GraphRtt;
+    std::vector<float> m_GraphDrop;
 };

@@ -4,6 +4,8 @@
 
 #include <QtGlobal>
 #include <QDesktopServices>
+#include <QDateTime>
+#include <QImage>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -21,6 +23,18 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
+
+#ifdef Q_OS_WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <SDL_syswm.h>
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -146,6 +160,7 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
 ShortcutMenu::~ShortcutMenu()
 {
     endDrag();
+    destroyGraphWindow();
     overrideMinimizeOnFocusLoss(false);
 
     if (m_Window != nullptr) {
@@ -346,6 +361,24 @@ void ShortcutMenu::buildItems()
         item.rect = {0, 0, 0, 0};
         m_Items.push_back(item);
     }
+#ifdef Q_OS_WIN32
+    {
+        Item item;
+        item.label = "Screenshot of stream";
+        item.hint = "saves a PNG";
+        item.kind = KindScreenshot;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 1;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+
+        item.label = "Latency graph";
+        item.hint = m_GraphEnabled ? "on" : "off";
+        item.kind = KindToggleGraph;
+        m_Items.push_back(item);
+    }
+#endif
     client("Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
     client("Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
 
@@ -364,6 +397,106 @@ void ShortcutMenu::buildItems()
 
     // Column 0 (everything else moves right): pinned and recently used shortcuts
     addTopColumn();
+
+    // Last column: recent clipboard entries
+    addClipboardColumn();
+}
+
+void ShortcutMenu::addClipboardColumn()
+{
+    if (m_ClipHistory.empty() || m_ColumnTitles.size() >= 6) {
+        return;
+    }
+
+    const int column = (int)m_ColumnTitles.size();
+    m_ColumnTitles.push_back("Clipboard history (types it)");
+
+    for (const std::string& entry : m_ClipHistory) {
+        // One-line preview that fits the column
+        std::string preview;
+        for (char c : entry) {
+            if (c == '\r' || c == '\n' || c == '\t') {
+                c = ' ';
+            }
+            if (c == ' ' && !preview.empty() && preview.back() == ' ') {
+                continue;
+            }
+            preview.push_back(c);
+        }
+        const size_t kMaxPreview = 32;
+        if (preview.size() > kMaxPreview) {
+            size_t cut = kMaxPreview;
+            while (cut > 0 && ((unsigned char)preview[cut] & 0xC0) == 0x80) {
+                cut--; // don't split a UTF-8 character
+            }
+            preview.resize(cut);
+            preview += "...";
+        }
+
+        Item item;
+        item.label = preview;
+        item.hint = "";
+        item.kind = KindClipboard;
+        item.text = entry;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = column;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    }
+
+    Item clear;
+    clear.label = "Clear history";
+    clear.hint = "";
+    clear.kind = KindClearClips;
+    clear.clientCombo = -1;
+    clear.dangerous = false;
+    clear.column = column;
+    clear.rect = {0, 0, 0, 0};
+    m_Items.push_back(clear);
+}
+
+void ShortcutMenu::pollClipboard()
+{
+    const unsigned int now = SDL_GetTicks();
+    if (m_LastClipPoll != 0 && now - m_LastClipPoll < 700) {
+        return;
+    }
+    m_LastClipPoll = now != 0 ? now : 1;
+
+    if (!SDL_HasClipboardText()) {
+        return;
+    }
+
+    char* raw = SDL_GetClipboardText();
+    if (raw == nullptr) {
+        return;
+    }
+    std::string text(raw);
+    SDL_free(raw);
+
+    if (text.find_first_not_of(" \t\r\n") == std::string::npos) {
+        return;
+    }
+
+    // Keep entries a sensible size to type, without cutting a UTF-8 character in half
+    const size_t kMaxEntry = 2000;
+    if (text.size() > kMaxEntry) {
+        size_t cut = kMaxEntry;
+        while (cut > 0 && ((unsigned char)text[cut] & 0xC0) == 0x80) {
+            cut--;
+        }
+        text.resize(cut);
+    }
+
+    if (!m_ClipHistory.empty() && m_ClipHistory.front() == text) {
+        return;
+    }
+    m_ClipHistory.erase(std::remove(m_ClipHistory.begin(), m_ClipHistory.end(), text), m_ClipHistory.end());
+    m_ClipHistory.insert(m_ClipHistory.begin(), text);
+    if (m_ClipHistory.size() > 10) {
+        m_ClipHistory.resize(10);
+    }
 }
 
 void ShortcutMenu::addCustomItems()
@@ -664,6 +797,21 @@ void ShortcutMenu::endTransient()
 
 void ShortcutMenu::tick()
 {
+    pollClipboard();
+
+    if (m_ScreenshotAt != 0 && (int)(SDL_GetTicks() - m_ScreenshotAt) >= 0) {
+        m_ScreenshotAt = 0;
+        captureScreenshot();
+    }
+
+    if (m_GraphEnabled) {
+        // Come back after a screenshot has been taken
+        if (m_GraphHiddenUntil != 0 && (int)(SDL_GetTicks() - m_GraphHiddenUntil) >= 0) {
+            updateGraphWindow();
+        }
+        sampleGraph();
+    }
+
     if (m_CheckActive && (int)(SDL_GetTicks() - m_CheckEndsAt) >= 0) {
         finishConnectionCheck();
     }
@@ -852,6 +1000,8 @@ void ShortcutMenu::updatePosition()
         return;
     }
 
+    updateGraphWindow();
+
     if (!m_Revealed) {
         if (m_Shown) {
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: hiding window");
@@ -998,7 +1148,11 @@ void ShortcutMenu::toggleFromHotkey()
     m_TransientOwnsReveal = false;
     m_TransientMessage.clear();
 
-    // Pick up any edits to the custom shortcuts file
+    // Pick up any edits to the custom shortcuts file (and new clipboard entries)
+    pollClipboard();
+    if (Session::get() != nullptr) {
+        m_HostInfo = Session::get()->getStreamSummary();
+    }
     rebuildItems();
 
     m_Revealed = true;
@@ -1036,6 +1190,37 @@ void ShortcutMenu::execute(const Item& itemRef)
 
     if (item.kind == KindConnectionCheck) {
         startConnectionCheck();
+        return;
+    }
+
+    if (item.kind == KindClipboard) {
+        // Make sure no held keys interfere with the text being typed. These entries are
+        // never added to pinned/recent, since those are saved to disk.
+        m_Input->raiseAllKeys();
+        LiSendUtf8TextEvent(item.text.c_str(), (unsigned int)item.text.size());
+        showTransient("Typed clipboard entry", 2000);
+        return;
+    }
+
+    if (item.kind == KindClearClips) {
+        m_ClipHistory.clear();
+        showTransient("Clipboard history cleared", 2000);
+        return;
+    }
+
+    if (item.kind == KindScreenshot) {
+        // Give the menu (and the graph) a moment to disappear before grabbing the picture
+        m_ScreenshotAt = SDL_GetTicks() + 300;
+        if (m_ScreenshotAt == 0) {
+            m_ScreenshotAt = 1;
+        }
+        m_GraphHiddenUntil = SDL_GetTicks() + 1500;
+        updateGraphWindow();
+        return;
+    }
+
+    if (item.kind == KindToggleGraph) {
+        toggleGraph();
         return;
     }
 
@@ -1349,8 +1534,26 @@ void ShortcutMenu::render()
                  (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2);
     }
     if (m_Expanded) {
-        drawText(s, m_SmallFont, "right-click to pin  |  Esc to close", kHeaderTextColor,
+        const char* hintText = "right-click to pin  |  Esc to close";
+        drawText(s, m_SmallFont, hintText, kHeaderTextColor,
                  s->w - 34, (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2, true);
+
+        // Which PC and stream format this is, in the free space between the two
+        if (!m_HostInfo.empty()) {
+            int labelW = 0, labelH = 0, timerW = 0, timerH = 0, hintW = 0, hintH = 0, infoW = 0, infoH = 0;
+            if (TTF_SizeUTF8(m_Font, "Shortcuts", &labelW, &labelH) != 0) {
+                labelW = 85;
+            }
+            TTF_SizeUTF8(m_SmallFont, elapsedString().c_str(), &timerW, &timerH);
+            TTF_SizeUTF8(m_SmallFont, hintText, &hintW, &hintH);
+            TTF_SizeUTF8(m_SmallFont, m_HostInfo.c_str(), &infoW, &infoH);
+            int startX = 12 + labelW + 10 + timerW + 24;
+            int endX = s->w - 34 - hintW - 24;
+            if (infoW <= endX - startX) {
+                drawText(s, m_SmallFont, m_HostInfo.c_str(), kHeaderTextColor, startX,
+                         (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2);
+            }
+        }
     }
 
     if (m_Expanded) {
@@ -1384,3 +1587,309 @@ void ShortcutMenu::render()
 
     SDL_UpdateWindowSurface(m_Window);
 }
+
+
+// ---------------------------------------------------------------------------
+// Screenshot and latency graph (Windows only; other platforms don't offer them)
+// ---------------------------------------------------------------------------
+
+#ifdef Q_OS_WIN32
+
+void ShortcutMenu::captureScreenshot()
+{
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (!SDL_GetWindowWMInfo(m_Parent, &info)) {
+        showTransient("Screenshot failed", 2500);
+        return;
+    }
+    HWND hwnd = info.info.win.window;
+
+    RECT client;
+    POINT origin = {0, 0};
+    if (!GetClientRect(hwnd, &client) || !ClientToScreen(hwnd, &origin)) {
+        showTransient("Screenshot failed", 2500);
+        return;
+    }
+    const int w = client.right - client.left;
+    const int h = client.bottom - client.top;
+    if (w <= 0 || h <= 0) {
+        showTransient("Screenshot failed", 2500);
+        return;
+    }
+
+    // Copy the stream area off the composed desktop
+    QImage image(w, h, QImage::Format_RGB32);
+    bool ok = false;
+    HDC screen = GetDC(nullptr);
+    HDC mem = CreateCompatibleDC(screen);
+    HBITMAP bitmap = CreateCompatibleBitmap(screen, w, h);
+    if (screen != nullptr && mem != nullptr && bitmap != nullptr) {
+        HGDIOBJ old = SelectObject(mem, bitmap);
+        BOOL copied = BitBlt(mem, 0, 0, w, h, screen, origin.x, origin.y, SRCCOPY | CAPTUREBLT);
+        SelectObject(mem, old);
+
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = w;
+        bmi.bmiHeader.biHeight = -h; // top-down
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        ok = copied && GetDIBits(mem, bitmap, 0, h, image.bits(), &bmi, DIB_RGB_COLORS) == h;
+    }
+    if (bitmap != nullptr) {
+        DeleteObject(bitmap);
+    }
+    if (mem != nullptr) {
+        DeleteDC(mem);
+    }
+    if (screen != nullptr) {
+        ReleaseDC(nullptr, screen);
+    }
+
+    if (!ok) {
+        showTransient("Screenshot failed", 2500);
+        return;
+    }
+
+    QDir folder(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    if (!folder.mkpath("Vibelight")) {
+        showTransient("Can't create the Pictures\\Vibelight folder", 3000);
+        return;
+    }
+    const QString file = folder.filePath("Vibelight/Vibelight-" +
+                                         QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".png");
+    if (!image.save(file, "PNG")) {
+        showTransient("Couldn't save the screenshot", 3000);
+        return;
+    }
+
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: saved screenshot to %s", file.toUtf8().constData());
+    showTransient("Saved to Pictures\\Vibelight", 3000);
+}
+
+void ShortcutMenu::toggleGraph()
+{
+    m_GraphEnabled = !m_GraphEnabled;
+
+    if (m_GraphEnabled) {
+        if (m_GraphWindow == nullptr) {
+            Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS;
+#if SDL_VERSION_ATLEAST(2, 0, 5)
+            flags |= SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_SKIP_TASKBAR;
+#endif
+            m_GraphWindow = SDL_CreateWindow("Vibelight Connection Graph",
+                                             SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                             240, 96, flags);
+            if (m_GraphWindow != nullptr) {
+                // Never take focus or mouse clicks away from the stream
+                SDL_SysWMinfo info;
+                SDL_VERSION(&info.version);
+                if (SDL_GetWindowWMInfo(m_GraphWindow, &info)) {
+                    HWND hwnd = info.info.win.window;
+                    LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+                    SetWindowLongPtr(hwnd, GWL_EXSTYLE,
+                                     ex | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOOLWINDOW);
+                    SetLayeredWindowAttributes(hwnd, 0, 225, LWA_ALPHA);
+                }
+            }
+        }
+
+        if (m_GraphWindow == nullptr) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: couldn't create the graph window: %s", SDL_GetError());
+            m_GraphEnabled = false;
+            showTransient("Graph unavailable", 2500);
+            return;
+        }
+
+        m_GraphRtt.clear();
+        m_GraphDrop.clear();
+        m_GraphHavePrev = false;
+        m_GraphLastSample = 0;
+        showTransient("Latency graph on", 2000);
+    }
+    else {
+        destroyGraphWindow();
+        showTransient("Latency graph off", 2000);
+    }
+
+    updateGraphWindow();
+}
+
+void ShortcutMenu::destroyGraphWindow()
+{
+    if (m_GraphWindow != nullptr) {
+        SDL_DestroyWindow(m_GraphWindow);
+        m_GraphWindow = nullptr;
+    }
+    m_GraphShown = false;
+    m_GraphEnabled = false;
+}
+
+void ShortcutMenu::updateGraphWindow()
+{
+    if (m_GraphWindow == nullptr || !m_GraphEnabled) {
+        return;
+    }
+
+    const bool suppressed = m_GraphHiddenUntil != 0 && (int)(SDL_GetTicks() - m_GraphHiddenUntil) < 0;
+    if (!suppressed) {
+        m_GraphHiddenUntil = 0;
+    }
+
+    Uint32 parentFlags = SDL_GetWindowFlags(m_Parent);
+    if (suppressed || (parentFlags & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN))) {
+        if (m_GraphShown) {
+            SDL_HideWindow(m_GraphWindow);
+            m_GraphShown = false;
+        }
+        return;
+    }
+
+    int px, py, pw, ph, w, h;
+    SDL_GetWindowPosition(m_Parent, &px, &py);
+    SDL_GetWindowSize(m_Parent, &pw, &ph);
+    SDL_GetWindowSize(m_GraphWindow, &w, &h);
+
+    // Bottom-left corner of the stream, clear of the stats text at the top
+    int x = px + 12;
+    int y = py + ph - h - 12;
+    int cx, cy;
+    SDL_GetWindowPosition(m_GraphWindow, &cx, &cy);
+    if (cx != x || cy != y) {
+        SDL_SetWindowPosition(m_GraphWindow, x, y);
+    }
+
+    if (!m_GraphShown) {
+#ifdef SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN
+        SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
+#endif
+        SDL_ShowWindow(m_GraphWindow);
+        m_GraphShown = true;
+        SDL_RaiseWindow(m_Parent);
+        renderGraph();
+    }
+
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+    SDL_SetWindowAlwaysOnTop(m_GraphWindow, SDL_TRUE);
+#endif
+}
+
+void ShortcutMenu::sampleGraph()
+{
+    const unsigned int now = SDL_GetTicks();
+    if (m_GraphLastSample != 0 && now - m_GraphLastSample < 1000) {
+        return;
+    }
+    m_GraphLastSample = now != 0 ? now : 1;
+
+    Session* session = Session::get();
+    CONNECTION_SNAPSHOT snap = {};
+    if (session == nullptr || !session->getConnectionSnapshot(snap)) {
+        return;
+    }
+
+    if (m_GraphHavePrev && snap.totalFrames >= m_GraphPrevFrames) {
+        const unsigned int frames = snap.totalFrames - m_GraphPrevFrames;
+        const unsigned int dropped = snap.networkDroppedFrames >= m_GraphPrevDropped ?
+                                         snap.networkDroppedFrames - m_GraphPrevDropped : 0;
+        m_GraphRtt.push_back((int)snap.rttMs);
+        m_GraphDrop.push_back(frames > 0 ? 100.0f * (float)dropped / (float)frames : 0.0f);
+        if (m_GraphRtt.size() > 60) {
+            m_GraphRtt.erase(m_GraphRtt.begin());
+            m_GraphDrop.erase(m_GraphDrop.begin());
+        }
+    }
+    m_GraphHavePrev = true;
+    m_GraphPrevFrames = snap.totalFrames;
+    m_GraphPrevDropped = snap.networkDroppedFrames;
+
+    if (m_GraphShown) {
+        renderGraph();
+    }
+}
+
+void ShortcutMenu::renderGraph()
+{
+    if (m_GraphWindow == nullptr) {
+        return;
+    }
+    SDL_Surface* s = SDL_GetWindowSurface(m_GraphWindow);
+    if (s == nullptr) {
+        return;
+    }
+
+    const Uint32 border = SDL_MapRGB(s->format, 0x1E, 0x26, 0x40);
+    const Uint32 background = SDL_MapRGB(s->format, 0x0D, 0x14, 0x24);
+    const Uint32 grid = SDL_MapRGB(s->format, 0x1E, 0x26, 0x40);
+    const Uint32 rttColor = SDL_MapRGB(s->format, 0x81, 0x8C, 0xF8);
+    const Uint32 dropColor = SDL_MapRGB(s->format, 0xF0, 0x70, 0x7A);
+
+    SDL_FillRect(s, nullptr, border);
+    SDL_Rect inner = { 1, 1, s->w - 2, s->h - 2 };
+    SDL_FillRect(s, &inner, background);
+
+    int lastRtt = 0;
+    float lastDrop = 0.0f;
+    int maxRtt = 60;
+    if (!m_GraphRtt.empty()) {
+        lastRtt = m_GraphRtt.back();
+        lastDrop = m_GraphDrop.back();
+        maxRtt = qMax(maxRtt, *std::max_element(m_GraphRtt.begin(), m_GraphRtt.end()));
+    }
+
+    char text[96];
+    if (m_GraphRtt.empty()) {
+        SDL_snprintf(text, sizeof(text), "Waiting for data...");
+    }
+    else {
+        SDL_snprintf(text, sizeof(text), "RTT %d ms   drops %.1f%%", lastRtt, (double)lastDrop);
+    }
+    drawText(s, m_SmallFont, text, kTextColor, 8, 5);
+
+    // Plot area
+    const int plotLeft = 8, plotRight = s->w - 8;
+    const int plotTop = 24, plotBottom = s->h - 8;
+    const int plotH = plotBottom - plotTop;
+    const int plotW = plotRight - plotLeft;
+    SDL_Rect baseline = { plotLeft, plotBottom, plotW, 1 };
+    SDL_FillRect(s, &baseline, grid);
+
+    const int n = (int)m_GraphRtt.size();
+    const float step = plotW / 60.0f;
+    int prevY = -1;
+    for (int i = 0; i < n; i++) {
+        // Newest sample on the right edge
+        const int x = plotRight - (int)((n - 1 - i) * step) - 2;
+
+        // Dropped frames as red bars (10% or more fills the plot)
+        int barH = (int)(plotH * qMin(m_GraphDrop[i], 10.0f) / 10.0f);
+        if (m_GraphDrop[i] > 0.05f) {
+            barH = qMax(barH, 2);
+            SDL_Rect bar = { x, plotBottom - barH, 3, barH };
+            SDL_FillRect(s, &bar, dropColor);
+        }
+
+        // Round trip time as a line
+        int y = plotBottom - (int)((long long)plotH * qMin(m_GraphRtt[i], maxRtt) / maxRtt);
+        int top = prevY < 0 ? y : qMin(y, prevY);
+        int bottom = prevY < 0 ? y : qMax(y, prevY);
+        SDL_Rect seg = { x, top, 2, bottom - top + 2 };
+        SDL_FillRect(s, &seg, rttColor);
+        prevY = y;
+    }
+
+    SDL_UpdateWindowSurface(m_GraphWindow);
+}
+
+#else // !Q_OS_WIN32
+
+void ShortcutMenu::captureScreenshot() {}
+void ShortcutMenu::toggleGraph() {}
+void ShortcutMenu::destroyGraphWindow() {}
+void ShortcutMenu::updateGraphWindow() {}
+void ShortcutMenu::sampleGraph() {}
+void ShortcutMenu::renderGraph() {}
+
+#endif

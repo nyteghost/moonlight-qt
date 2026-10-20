@@ -990,23 +990,6 @@ Flickable {
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Mutes Vibelight's audio when you Alt+Tab out of the stream or click on a different window.")
                 }
-
-                CheckBox {
-                    id: ctrlAltReleaseMouseCheck
-                    width: parent.width
-                    text: qsTr("Hold Ctrl+Alt to release the mouse")
-                    font.pointSize: 12
-                    visible: SystemProperties.hasDesktopEnvironment
-                    checked: StreamingPreferences.ctrlAltReleaseMouse
-                    onCheckedChanged: {
-                        StreamingPreferences.ctrlAltReleaseMouse = checked
-                    }
-
-                    ToolTip.delay: 1000
-                    ToolTip.timeout: 7000
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("While you hold the left Alt and Ctrl keys, the mouse is freed so you can move it outside the stream window. Release the keys to capture it again. Keys are still sent to the remote PC as usual.")
-                }
             }
         }
 
@@ -1046,6 +1029,22 @@ Flickable {
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("This will close the app or game you are streaming when you end your stream. You will lose any unsaved progress!")
+                }
+
+                CheckBox {
+                    id: autoReconnectCheck
+                    width: parent.width
+                    text: qsTr("Automatically reconnect if the stream drops")
+                    font.pointSize: 12
+                    checked: StreamingPreferences.autoReconnect
+                    onCheckedChanged: {
+                        StreamingPreferences.autoReconnect = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("If the connection is lost in the middle of a stream (a Wi-Fi blip, for example), Vibelight tries up to 3 times to resume it instead of returning to the PC list. Quitting the stream yourself never triggers this.")
                 }
             }
         }
@@ -1503,6 +1502,23 @@ Flickable {
                     onCheckedChanged: {
                         StreamingPreferences.reverseScrollDirection = checked
                     }
+                }
+
+                CheckBox {
+                    id: ctrlAltReleaseMouseCheck
+                    width: parent.width
+                    text: qsTr("Hold Ctrl+Alt to release the mouse")
+                    font.pointSize: 12
+                    visible: SystemProperties.hasDesktopEnvironment
+                    checked: StreamingPreferences.ctrlAltReleaseMouse
+                    onCheckedChanged: {
+                        StreamingPreferences.ctrlAltReleaseMouse = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("While you hold the left Alt and Ctrl keys, the mouse is freed so you can move it outside the stream window. Release the keys to capture it again. Keys are still sent to the remote PC as usual.")
                 }
             }
         }

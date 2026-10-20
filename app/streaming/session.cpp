@@ -98,6 +98,7 @@ void Session::clConnectionTerminated(int errorCode)
 
     case ML_ERROR_NO_VIDEO_TRAFFIC:
         s_ActiveSession->m_UnexpectedTermination = true;
+        s_ActiveSession->m_ReconnectEligible = s_ActiveSession->m_StreamStarted;
 
         char ports[128];
         SDL_assert(portFlags != 0);
@@ -108,6 +109,7 @@ void Session::clConnectionTerminated(int errorCode)
 
     case ML_ERROR_NO_VIDEO_FRAME:
         s_ActiveSession->m_UnexpectedTermination = true;
+        s_ActiveSession->m_ReconnectEligible = s_ActiveSession->m_StreamStarted;
         emit s_ActiveSession->displayLaunchError(tr("Your network connection isn't performing well. Reduce your video bitrate setting or try a faster connection."));
         break;
 
@@ -126,6 +128,7 @@ void Session::clConnectionTerminated(int errorCode)
 
     default:
         s_ActiveSession->m_UnexpectedTermination = true;
+        s_ActiveSession->m_ReconnectEligible = s_ActiveSession->m_StreamStarted;
 
         // We'll assume large errors are hex values
         bool hexError = qAbs(errorCode) > 1000;
@@ -1735,6 +1738,38 @@ void Session::flushWindowEvents()
     SDL_PushEvent(&flushEvent);
 }
 
+std::string Session::getStreamSummary() const
+{
+    QStringList parts;
+    parts << m_Computer->name;
+
+    if (m_ActiveVideoWidth > 0 && m_ActiveVideoHeight > 0) {
+        parts << QString("%1x%2@%3").arg(m_ActiveVideoWidth).arg(m_ActiveVideoHeight).arg(m_ActiveVideoFrameRate);
+    }
+
+    QString codec;
+    if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_AV1) {
+        codec = "AV1";
+    }
+    else if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_H265) {
+        codec = "HEVC";
+    }
+    else if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_H264) {
+        codec = "H.264";
+    }
+    if (!codec.isEmpty()) {
+        if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_10BIT) {
+            codec += " 10-bit";
+        }
+        if (m_ActiveVideoFormat & VIDEO_FORMAT_MASK_YUV444) {
+            codec += " 4:4:4";
+        }
+        parts << codec;
+    }
+
+    return parts.join("  |  ").toStdString();
+}
+
 bool Session::getConnectionSnapshot(CONNECTION_SNAPSHOT& snapshot)
 {
     bool ok = false;
@@ -1787,6 +1822,18 @@ void Session::start()
     thread->start();
 }
 
+bool Session::wantsReconnect() const
+{
+    return m_Preferences->autoReconnect && m_UnexpectedTermination && m_ReconnectEligible;
+}
+
+Session* Session::createReconnectSession()
+{
+    auto session = new Session(m_Computer, m_App, m_Preferences);
+    session->m_IsReconnectAttempt = true;
+    return session;
+}
+
 void Session::interrupt()
 {
     // Stop any connection in progress
@@ -1803,6 +1850,12 @@ void Session::exec()
 {
     // If the connection failed, clean up and abort the connection.
     if (!m_AsyncConnectionSuccess) {
+        // A failed attempt to resume a dropped stream is worth another try
+        // (the host may still be waking up or the network coming back).
+        if (m_IsReconnectAttempt) {
+            m_ReconnectEligible = true;
+        }
+
         delete m_InputHandler;
         m_InputHandler = nullptr;
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -1972,6 +2025,7 @@ void Session::exec()
     // unless it comes from the connection termination callback where
     // (m_UnexpectedTermination is set back to true).
     m_UnexpectedTermination = false;
+    m_StreamStarted = true;
 
     // Start rich presence to indicate we're in game
     RichPresenceManager presence(*m_Preferences, m_App.name);

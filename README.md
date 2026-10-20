@@ -15,7 +15,7 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 ### Floating "Shortcuts" button
 While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
 
-**Hold Ctrl+Alt to release the mouse.** While you hold the left Ctrl and left Alt keys, the mouse is freed so you can move it outside the stream window. Let go and it is captured again (if the pointer is still over the window). Keys are still sent to the remote PC as usual, and Ctrl+Alt+Shift shortcuts work the same. Turn it off in Settings under the input options ("Hold Ctrl+Alt to release the mouse").
+**Hold Ctrl+Alt to release the mouse.** While you hold the left Ctrl and left Alt keys, the mouse is freed so you can move it outside the stream window. Let go and it is captured again (if the pointer is still over the window). Keys are still sent to the remote PC as usual, and Ctrl+Alt+Shift shortcuts work the same. Turn it off in **Settings → Input Settings** ("Hold Ctrl+Alt to release the mouse").
 
 **What's in the menu**
 - **Send to remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
@@ -23,11 +23,15 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 - **Displays & windows (sent to the remote PC):** projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), reset the graphics driver (Win+Ctrl+Shift+B). These change windows and display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
 - **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned shortcuts and your four most recently used ones appear in a column on the left.
 - **Custom shortcuts:** your own buttons in extra columns, up to 28 entries (see below).
+- **Clipboard history:** the last 10 things you copied on this PC, as a column on the right. Click one to type it on the remote PC. The list is kept in memory only, is never saved to disk, and is gone when the stream ends. **Clear history** empties it right away. Anything you copy while streaming can appear here, including passwords, so clear it if that matters.
 
 **Feedback and tools**
 - **Hint:** the first three streams, the button appears for a few seconds saying how to open it. If your custom shortcuts file has a problem, you get a short warning at the start of every stream.
 - **"Sent" message:** after you choose a shortcut, the button briefly shows what was sent.
 - **Stream timer:** the button shows how long the stream has been running.
+- **Host info:** the open menu's header shows the PC name, stream resolution and frame rate, and codec (for example `DESKTOP-PC  |  1920x1080@60  |  HEVC 10-bit`) when there is room.
+- **Screenshot of stream (Windows):** saves a PNG of the stream window to `Pictures\Vibelight`. The menu and graph hide first so they aren't in the picture. It copies what is on screen, so exclusive fullscreen or protected video can come out black.
+- **Latency graph (Windows):** a small click-through panel in the bottom-left corner with the last 60 seconds of round-trip time (blue line) and dropped frames (red bars). Toggle it from the menu; it is off by default.
 - **Check connection:** watches the stream for 10 seconds, reports how many frames the network dropped, and suggests a bitrate: lower if frames are being lost, higher if the connection is clean and the stream is using all the bitrate it's given, otherwise "good fit". This measures your real stream rather than running a speed test, so run it while something on screen is moving. The suggestion is saved, and Settings shows "Your last connection check suggested N Mbps" with a **Use** button under the bitrate slider.
 
 **Notes and limitations**
@@ -35,6 +39,9 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 - Windows may block injected Ctrl+Alt+Del depending on the host software.
 - With every column in use, the menu is up to about 1,800 pixels wide, which can be cut off on smaller screens.
 - This feature is new and has had limited testing, especially in exclusive fullscreen.
+
+### Auto-reconnect
+If the connection drops in the middle of a stream (a Wi-Fi blip, the host stalling), Vibelight shows "Connection lost. Reconnecting..." and tries up to 3 times to resume the stream instead of returning to the PC list. If every attempt fails you get the usual error. It never triggers when you quit the stream yourself or the host ends the session, or for host-side problems like encoder errors. Turn it off with **Settings → Host Settings → Automatically reconnect if the stream drops**.
 
 ### Custom shortcuts
 Click **Edit custom shortcuts...** in the dropdown (or edit the file yourself) to add your own buttons. The file is `vibelight-shortcuts.json`. It lives in the app's config folder, or next to `Vibelight.exe` in portable mode. It is created the first time you open the menu. Changes show up the next time you press Ctrl+Alt+Shift+H, with no restart.

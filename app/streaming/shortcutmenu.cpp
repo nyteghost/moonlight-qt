@@ -73,6 +73,27 @@ const int kMaxRowsPerColumn = 14;
 const int kMaxCustomColumns = 2; // keeps the menu narrower than a 1920px screen
 const int kFirstCustomColumn = 0; // custom shortcuts have their own page
 
+// Fills a rectangle with rounded corners (simple row-by-row approximation)
+void fillRoundRect(SDL_Surface* dst, SDL_Rect r, int radius, Uint32 color)
+{
+    radius = qMin(radius, qMin(r.w, r.h) / 2);
+    for (int row = 0; row < r.h; row++) {
+        int inset = 0;
+        if (row < radius) {
+            inset = radius - row;
+        }
+        else if (row >= r.h - radius) {
+            inset = radius - (r.h - 1 - row);
+        }
+        // Soften the corner: the first rows lose more width than a plain step
+        inset = (inset * inset + radius - 1) / qMax(radius, 1);
+        SDL_Rect line = { r.x + inset, r.y + row, r.w - inset * 2, 1 };
+        if (line.w > 0) {
+            SDL_FillRect(dst, &line, color);
+        }
+    }
+}
+
 bool pointInRect(const SDL_Rect& r, int x, int y)
 {
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
@@ -1719,10 +1740,20 @@ void ShortcutMenu::render()
 
     if (m_Expanded) {
         for (int c = 0; c < m_NumColumns && c < (int)m_ColumnTitles.size(); c++) {
+            const int colX = (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding);
             drawText(s, m_SmallFont, m_ColumnTitles[c].c_str(), kTitleColor,
-                     (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding) + 4,
-                     kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2);
+                     colX + 8,
+                     kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2 - 2);
+
+            // Thin divider under the title
+            const int colW = (c < (int)m_ColumnWidths.size() ? m_ColumnWidths[c] : kMinColumnWidth);
+            SDL_Rect divider = { colX + 6, kHeaderHeight + kPadding + kTitleHeight - 4, colW - 12, 1 };
+            SDL_FillRect(s, &divider, border);
         }
+
+        // Thin divider above the footer
+        SDL_Rect footerLine = { 8, s->h - kFooterHeight, s->w - 16, 1 };
+        SDL_FillRect(s, &footerLine, border);
 
         // Version and build, bottom right
         drawText(s, m_SmallFont, versionLine().c_str(), kHintColor,
@@ -1735,7 +1766,10 @@ void ShortcutMenu::render()
             }
 
             if ((int)i == m_HoverIndex && item.kind != KindInfo) {
-                SDL_FillRect(s, const_cast<SDL_Rect*>(&item.rect), hoverColor);
+                SDL_Rect hoverRect = { item.rect.x + 2, item.rect.y + 1, item.rect.w - 4, item.rect.h - 2 };
+                fillRoundRect(s, hoverRect, 5, hoverColor);
+                SDL_Rect accentBar = { hoverRect.x + 1, hoverRect.y + 5, 3, hoverRect.h - 10 };
+                fillRoundRect(s, accentBar, 1, SDL_MapRGB(s->format, 0x63, 0x66, 0xF1));
             }
 
             bool confirming = ((int)i == m_ConfirmIndex);
@@ -1764,6 +1798,13 @@ void ShortcutMenu::render()
                 drawText(s, m_SmallFont, item.hint.c_str(), kHintColor,
                          rightEdge,
                          item.rect.y + (item.rect.h - TTF_FontHeight(m_SmallFont)) / 2, true);
+
+                // A small green or grey dot makes on/off settings easy to read at a glance
+                if (item.kind == KindToggleGraph) {
+                    SDL_Rect dot = { rightEdge - hintWidth - 14, item.rect.y + item.rect.h / 2 - 4, 8, 8 };
+                    fillRoundRect(s, dot, 4, m_GraphEnabled ? SDL_MapRGB(s->format, 0x34, 0xD3, 0x99)
+                                                            : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
+                }
             }
         }
     }

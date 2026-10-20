@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       windows_only:
-        description: Skip the macOS build (used for quick branch builds)
+        description: Quick build - Windows x64 only, no macOS, arm64 or installer bundle
         required: false
         type: boolean
         default: false
@@ -53,7 +53,7 @@ jobs:
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@073e34d7c2ab4ae6961ed7cca690b3abd5ba5a7e'
 
       - name: Install Qt ARM64 (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !inputs.windows_only
         uses: jurplel/install-qt-action@v4
         with:
           cache: true
@@ -72,7 +72,7 @@ jobs:
           QT_PATH: ${{ runner.workspace }}\Qt\${{ matrix.qt_version }}\msvc2022_64\bin
 
       - name: Build ARM64 binaries (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !inputs.windows_only
         shell: cmd
         run: |
           set "PATH=%QT_PATH%;%PATH%"
@@ -81,6 +81,7 @@ jobs:
           QT_PATH: ${{ runner.workspace }}\Qt\${{ matrix.qt_version }}\msvc2022_arm64\bin
 
       - name: Build Package
+        if: ${{ !inputs.windows_only }}
         shell: pwsh
         run: |
           if ($Env:RUNNER_OS -eq "Windows") {
@@ -99,7 +100,7 @@ jobs:
 
       - name: Upload Binaries (Windows arm64)
         uses: actions/upload-artifact@v6
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !inputs.windows_only
         with:
           name: Vibelight-${{ runner.os }}-arm64-${{ env.CI_VERSION }}
           path: build/deploy-arm64-release/*

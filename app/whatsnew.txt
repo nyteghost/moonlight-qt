@@ -1,4 +1,5 @@
 Shortcuts menu (Ctrl+Alt+Shift+H)
+- Tidier layout: a short top level with Pinned & recent and categories (Remote PC, Displays, Vibelight, Tools, My shortcuts, Clipboard). Click Back or press Esc to go up.
 - Pin, recents, and your own custom shortcuts (edit them from the menu).
 - Display and monitor shortcuts such as Win+P and Win+Shift+Left/Right.
 - Check connection: watches the stream for 10 seconds and suggests a bitrate.

@@ -29,9 +29,13 @@ Updates and support
 - Check for updates and Download update buttons in Settings -> Support.
 - Settings -> Support shows the exact version and build, can save a diagnostics file, open the log folder, show What's new and show this list.
 - A What's new window appears the first time a new version runs.
+- Install and restart: on portable Windows installs the downloaded update is unpacked over the app folder by a small script, with a backup and automatic rollback.
+- Report a problem button opens a prefilled GitHub issue (no diagnostics are attached).
+- A search box in Settings, and a setting for the shortcuts menu hotkey letter.
 
 Project and builds
 - Portable Windows zips (x64 and arm64) and a macOS dmg published by a Release workflow when a version tag is pushed.
 - Quick Windows-only builds for branches, with the full set (all platforms) on master and manual runs.
 - A weekly workflow that merges new upstream Moonlight commits into a pull request.
 - A rewritten README covering the features above.
+- CI checks: logic tests, a QML lint and a Windows test of the updater script.

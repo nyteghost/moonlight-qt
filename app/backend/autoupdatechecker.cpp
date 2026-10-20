@@ -6,7 +6,11 @@
 #include <QJsonObject>
 #include <QCryptographicHash>
 #include <QDesktopServices>
+#include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QProcess>
+#include <QTimer>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSysInfo>
@@ -294,6 +298,78 @@ void AutoUpdateChecker::revealDownload()
     if (!path.isEmpty()) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
     }
+}
+
+bool AutoUpdateChecker::canInstallUpdate() const
+{
+#ifdef Q_OS_WIN32
+    QString zip = m_DownloadedFile;
+    if (zip.isEmpty() || !zip.endsWith(".zip", Qt::CaseInsensitive) || !QFileInfo::exists(zip)) {
+        return false;
+    }
+
+    QDir appDir(QCoreApplication::applicationDirPath());
+
+    // Only portable installs: an installed copy lives in a folder we shouldn't write to
+    if (!QFileInfo::exists(appDir.filePath("portable.dat"))) {
+        return false;
+    }
+
+    // Make sure the folder is writable before offering to replace files in it
+    QFile probe(appDir.filePath(".update-write-test"));
+    if (!probe.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    probe.close();
+    probe.remove();
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool AutoUpdateChecker::installUpdateAndRestart()
+{
+#ifdef Q_OS_WIN32
+    if (!canInstallUpdate()) {
+        return false;
+    }
+
+    // Write the bundled script to a temp file, since PowerShell can't read from a resource
+    QFile resource(":/update-vibelight.ps1");
+    if (!resource.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    QByteArray scriptData = resource.readAll();
+    resource.close();
+
+    QString scriptPath = QDir::temp().filePath("update-vibelight.ps1");
+    QFile::remove(scriptPath);
+    QFile scriptFile(scriptPath);
+    if (!scriptFile.open(QIODevice::WriteOnly) || scriptFile.write(scriptData) != scriptData.size()) {
+        return false;
+    }
+    scriptFile.close();
+
+    QFileInfo exeInfo(QCoreApplication::applicationFilePath());
+    QStringList args;
+    args << "-NoProfile" << "-ExecutionPolicy" << "Bypass" << "-WindowStyle" << "Hidden"
+         << "-File" << QDir::toNativeSeparators(scriptPath)
+         << "-AppDir" << QDir::toNativeSeparators(exeInfo.absolutePath())
+         << "-ZipPath" << QDir::toNativeSeparators(m_DownloadedFile)
+         << "-ProcessId" << QString::number(QCoreApplication::applicationPid())
+         << "-ExeName" << exeInfo.fileName();
+
+    if (!QProcess::startDetached("powershell.exe", args)) {
+        return false;
+    }
+
+    // Give the script a moment to start, then close so it can replace our files
+    QTimer::singleShot(500, qApp, &QCoreApplication::quit);
+    return true;
+#else
+    return false;
+#endif
 }
 
 int AutoUpdateChecker::compareVersion(QVector<int>& version1, QVector<int>& version2) {

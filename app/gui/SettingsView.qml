@@ -43,6 +43,62 @@ Flickable {
         duration: 100
     }
 
+    // All the text a settings card shows (title, labels, checkbox text, buttons, selected combo
+    // entries), in lower case, so the search box can tell which cards match.
+    function collectText(item) {
+        var found = ""
+        if (typeof item.title === "string") {
+            found += " " + item.title
+        }
+        if (typeof item.text === "string") {
+            found += " " + item.text
+        }
+        if (typeof item.displayText === "string") {
+            found += " " + item.displayText
+        }
+        if (typeof item.placeholderText === "string") {
+            found += " " + item.placeholderText
+        }
+        var kids = item.children
+        for (var i = 0; i < kids.length; i++) {
+            found += collectText(kids[i])
+        }
+        return found.toLowerCase()
+    }
+
+    function applySearch(query) {
+        var words = query.toLowerCase().split(" ").filter(function(w) { return w !== "" })
+        var columns = [settingsColumn1, settingsColumn2]
+        var anyVisible = false
+
+        for (var c = 0; c < columns.length; c++) {
+            var cards = columns[c].children
+            for (var i = 0; i < cards.length; i++) {
+                var card = cards[i]
+                // Only the section cards take part (not the search box or the "no match" note)
+                if (card === settingsSearchField || card === noSettingsMatchLabel) {
+                    continue
+                }
+
+                var matches = true
+                if (words.length > 0) {
+                    var haystack = collectText(card)
+                    for (var w = 0; w < words.length; w++) {
+                        if (haystack.indexOf(words[w]) === -1) {
+                            matches = false
+                            break
+                        }
+                    }
+                }
+
+                card.visible = matches
+                anyVisible = anyVisible || matches
+            }
+        }
+
+        noSettingsMatchLabel.visible = words.length > 0 && !anyVisible
+    }
+
     Window.onActiveFocusItemChanged: {
         var item = Window.activeFocusItem
         if (item) {
@@ -99,6 +155,25 @@ Flickable {
         id: settingsColumn1
         width: settingsPage.width / 2
         spacing: 15
+
+        TextField {
+            id: settingsSearchField
+            width: parent.width - (parent.leftPadding + parent.rightPadding)
+            placeholderText: qsTr("Search settings")
+            font.pointSize: 12
+            selectByMouse: true
+            onTextChanged: settingsPage.applySearch(text)
+            Keys.onEscapePressed: text = ""
+        }
+
+        Label {
+            id: noSettingsMatchLabel
+            width: parent.width - (parent.leftPadding + parent.rightPadding)
+            visible: false
+            text: qsTr("No settings match your search.")
+            font.pointSize: 12
+            wrapMode: Text.Wrap
+        }
 
         CardGroupBox {
             id: basicSettingsGroupBox
@@ -1504,6 +1579,26 @@ Flickable {
                     }
                 }
 
+                Label {
+                    width: parent.width
+                    text: qsTr("Shortcuts menu hotkey: Ctrl+Alt+Shift+")
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                ComboBox {
+                    id: menuHotkeyCombo
+                    width: 120
+                    model: SystemProperties.shortcutMenuHotkeyChoices()
+                    Component.onCompleted: currentIndex = Math.max(0, find(SystemProperties.shortcutMenuHotkey()))
+                    onActivated: SystemProperties.setShortcutMenuHotkey(currentText)
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("The last key of the combination that shows the shortcuts menu while streaming. Only letters that Vibelight doesn't already use are offered. Takes effect the next time you start a stream.")
+                }
+
                 CheckBox {
                     id: ctrlAltReleaseMouseCheck
                     width: parent.width
@@ -1922,6 +2017,17 @@ Flickable {
                             AutoUpdateChecker.downloadUpdate()
                         }
                     }
+
+                    Button {
+                        id: installUpdateButton
+                        text: qsTr("Install and restart")
+                        visible: false
+                        onClicked: {
+                            if (!AutoUpdateChecker.installUpdateAndRestart()) {
+                                updateStatus.text = qsTr("Vibelight could not start the updater. Nothing was changed.")
+                            }
+                        }
+                    }
                 }
 
                 Label {
@@ -1935,6 +2041,7 @@ Flickable {
                         checkUpdatesButton.checking = false
                         text = message
                         downloadUpdateButton.visible = updateAvailable && AutoUpdateChecker.hasDownload()
+                        installUpdateButton.visible = false
                     }
 
                     function downloadProgress(received, total) {
@@ -1945,6 +2052,7 @@ Flickable {
 
                     function downloadFinished(path) {
                         text = qsTr("Downloaded to %1").arg(path)
+                        installUpdateButton.visible = AutoUpdateChecker.canInstallUpdate()
                     }
 
                     function downloadFailed(message) {
@@ -1994,6 +2102,18 @@ Flickable {
                     Button {
                         text: qsTr("Differences from Moonlight")
                         onClicked: window.showDifferences()
+                    }
+
+                    Button {
+                        text: qsTr("Report a problem")
+                        onClicked: {
+                            // Save the diagnostics file first so it can be dragged into the issue
+                            var savedPath = SystemProperties.saveDiagnostics()
+                            diagnosticsStatus.text = savedPath !== ""
+                                    ? qsTr("Saved %1. Drag it into the issue that just opened in your browser.").arg(savedPath)
+                                    : qsTr("Couldn't save the diagnostics file, but the issue page was opened.")
+                            Qt.openUrlExternally(SystemProperties.problemReportUrl())
+                        }
                     }
                 }
 

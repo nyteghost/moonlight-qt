@@ -26,6 +26,14 @@ public:
     // Opens the folder containing the downloaded update
     Q_INVOKABLE void revealDownload();
 
+    // True when the downloaded update can be installed by Vibelight itself: Windows, a
+    // downloaded .zip, a portable install (portable.dat next to the exe) in a writable folder.
+    Q_INVOKABLE bool canInstallUpdate() const;
+
+    // Starts the updater script and closes Vibelight so it can replace the files.
+    // Returns false (and changes nothing) if the script could not be started.
+    Q_INVOKABLE bool installUpdateAndRestart();
+
     // True when the latest release has a package for this platform that can be downloaded
     Q_INVOKABLE bool hasDownload() const { return !m_DownloadUrl.isEmpty(); }
 

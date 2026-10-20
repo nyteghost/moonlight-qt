@@ -19,6 +19,7 @@
 #include <Limelight.h>
 
 #include "streaming/session.h"
+#include "streaming/vibelight_logic.h"
 #include "streaming/video/decoder.h"
 
 #include <cstdlib>
@@ -533,7 +534,7 @@ void ShortcutMenu::addCustomItems()
         if (starter.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             starter.write(
                 "{\n"
-                "  \"_help\": \"Add your own shortcuts below. Each needs a \\\"label\\\" and either \\\"keys\\\" (for example \\\"Ctrl+Alt+T\\\") or \\\"text\\\" (typed on the remote PC). Optional: \\\"confirm\\\": true asks for a second click. Save the file, then press Ctrl+Alt+Shift+H again to see your changes.\",\n"
+                "  \"_help\": \"Add your own shortcuts below. Each needs a \\\"label\\\" and either \\\"keys\\\" (for example \\\"Ctrl+Alt+T\\\") or \\\"text\\\" (typed on the remote PC). Optional: \\\"confirm\\\": true asks for a second click. Save the file, then press the menu hotkey (Ctrl+Alt+Shift+H unless you changed it in Settings) again to see your changes.\",\n"
                 "  \"shortcuts\": []\n"
                 "}\n");
         }
@@ -908,20 +909,7 @@ void ShortcutMenu::finishConnectionCheck()
 
     double dropPercent = 100.0 * dropped / frames;
     double currentMbps = session->getConfiguredBitrateKbps() / 1000.0;
-    double suggestedMbps = currentMbps;
-
-    if (dropPercent >= 3.0) {
-        suggestedMbps = currentMbps * 0.6;
-    }
-    else if (dropPercent >= 1.0) {
-        suggestedMbps = currentMbps * 0.8;
-    }
-    else if (dropPercent < 0.3 && (snapshot.rttMs == 0 || snapshot.rttMs < 30) &&
-             snapshot.videoMbps >= currentMbps * 0.8) {
-        // Clean, and the stream is actually using what it was given: there may be room to grow
-        suggestedMbps = qMin(currentMbps * 1.25, 150.0);
-    }
-    suggestedMbps = qMax(5.0, (double)(int)(suggestedMbps + 0.5));
+    const double suggestedMbps = vibelight::suggestBitrateMbps(currentMbps, dropPercent, snapshot.rttMs, snapshot.videoMbps);
 
     char buf[160];
     if (dropPercent >= 1.0) {
@@ -962,7 +950,9 @@ void ShortcutMenu::showHint()
         return;
     }
     settings.setValue("vibelight/hintShownCount", shown + 1);
-    showTransient("Press Ctrl+Alt+Shift+H for shortcuts", 5000);
+    const char letter = vibelight::sanitizeMenuHotkey(
+                QSettings().value("vibelight/menuHotkey", "H").toString().toStdString());
+    showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
 }
 
 void ShortcutMenu::layoutItems()

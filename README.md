@@ -13,7 +13,7 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 ## What's different from upstream Moonlight
 
 ### Floating "Shortcuts" button
-While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
+While streaming, press **Ctrl+Alt+Shift+H** (you can change the H in **Settings → Input Settings → Shortcuts menu hotkey**; it applies from the next stream) to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
 
 **Hold Ctrl+Alt to release the mouse.** While you hold the left Ctrl and left Alt keys, the mouse is freed so you can move it outside the stream window. Let go and it is captured again (if the pointer is still over the window). Keys are still sent to the remote PC as usual, and Ctrl+Alt+Shift shortcuts work the same. Turn it off in **Settings → Input Settings** ("Hold Ctrl+Alt to release the mouse").
 
@@ -68,7 +68,7 @@ Click **Edit custom shortcuts...** in the dropdown (or edit the file yourself) t
 The icon is an original design for this fork (a crescent moon and a spark of light on a warm coral background). It is not the Moonlight logo or any other company's logo. A 1024px copy is in `branding/vibelight-icon.png`.
 
 ### Updates
-The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. It doesn't replace the running app: close Vibelight, unzip into a new folder, and keep your `portable.dat` file there to keep your settings. Platforms without a downloadable package just open the release page. **Settings → Support → Check for updates** checks right now on any platform and says whether you're up to date, with a **Download update** button when a newer package is available. It is only active on Windows, macOS, Steam Link and AppImage builds.
+The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. On a portable install (a `portable.dat` next to the exe, in a writable folder) it then offers **Install and restart**: Vibelight closes, a bundled PowerShell script (`app/update-vibelight.ps1`) unpacks the zip over the app folder and starts Vibelight again. Nothing is deleted, `portable.dat` and your settings are untouched, every replaced file is first copied to `.update-backup`, and if copying fails the old files are restored. The script's log is `%TEMP%\vibelight-update.log`. Otherwise (or if you decline) it opens the folder and you can unzip into a new folder yourself, keeping your `portable.dat`. Platforms without a downloadable package just open the release page. **Settings → Support → Check for updates** checks right now on any platform and says whether you're up to date, with a **Download update** button when a newer package is available. It is only active on Windows, macOS, Steam Link and AppImage builds.
 
 ### Look and feel
 The app's colors follow the Vibepollo web UI: a near-black navy background (`#060918`), dark navy toolbar and panels (`#0D1424`), and an indigo accent (`#6366F1`). PC and game tiles are rounded cards whose border turns indigo on hover or keyboard focus, the top bar is flat with a thin bottom border, and each section of the Settings page is a rounded dark card with an indigo heading. The overall screen layout (grids, toolbar buttons, settings columns) is still Moonlight's.
@@ -84,6 +84,12 @@ Main files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), `ap
 
 ### Sharper text
 Blurry text when remoted in usually comes from the stream resolution not matching your screen, too low a bitrate, or the codec. Things to try, roughly in order: stream at your monitor's native resolution (fullscreen, or at least 1:1); raise the bitrate (and use **Check connection** to see how much your network can take); use HEVC or AV1 instead of H.264; try **YUV 4:4:4** if your host supports it (Sunshine only; it needs a higher bitrate); and on the host, prefer Windows display scaling of 100% or 150% over odd values like 125%.
+
+## Search settings
+The box at the top of **Settings** filters the sections as you type: only sections that contain every word you typed stay visible (for example `mouse`, or `bitrate slider`). Clear the box, or press Esc in it, to see everything again.
+
+## Report a problem
+**Settings → Support → Report a problem** saves a diagnostics file to your Downloads folder and opens a new GitHub issue in your browser with your version and system details filled in. Drag the diagnostics file into the issue. The file can contain PC names and local IP addresses, so look it over before sharing. The repository needs Issues turned on (**Settings → General → Features → Issues** on GitHub).
 
 ## Differences from Moonlight
 **Settings → Support → Differences from Moonlight** lists everything this fork changes or adds, with a button that opens GitHub's side-by-side code comparison against the original `moonlight-stream/moonlight-qt`. The list is the file `app/differences.txt`, so update it when you add a feature.
@@ -107,7 +113,7 @@ Releases are optional. To publish one:
 The in-app update indicator only shows something once a release like this exists with a higher version than the installed one.
 
 ## Downloads
-Until you publish a release, build artifacts come from GitHub Actions: open the **Actions** tab of this repository, pick a run of the **Build** workflow, and download the `Vibelight-Windows-x64-*` artifact (or `-arm64-`). It is an unpacked folder. Create an empty file called `portable.dat` next to `Vibelight.exe` to run it in portable mode, where settings are stored next to the program.
+Until you publish a release, build artifacts come from GitHub Actions: open the **Actions** tab of this repository, pick a run of the **Build** workflow, and download the `Vibelight-Windows-x64-*` artifact. It is an unpacked folder. Branch pushes only build Windows x64 so they finish quickly; runs on `master` (and manual runs from the Actions tab: **Build → Run workflow**) also build Windows arm64, macOS, the Linux AppImage and Steam Link. Create an empty file called `portable.dat` next to `Vibelight.exe` to run it in portable mode, where settings are stored next to the program.
 
 ## Credits
 The changes in this fork (the floating Shortcuts button and its features, the update download, the card styling, diagnostics, the release and sync workflows, the rename, the icon and this README) were written with [Claude](https://claude.com) by Anthropic. Moonlight itself is the work of the Moonlight project and its contributors.

@@ -46,6 +46,10 @@ jobs:
       VERSION: ${{ needs.check-version.outputs.version }}
       CI_VERSION: ${{ needs.check-version.outputs.ci_version }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: app/whatsnew.txt
+
       - uses: actions/download-artifact@v6
         with:
           path: artifacts
@@ -69,7 +73,15 @@ jobs:
       - name: Create GitHub Release
         shell: bash
         run: |
+          # The same text the app shows in its "What's new" window, followed by GitHub's changelog
+          {
+            echo "## What's new in ${VERSION}"
+            echo
+            cat app/whatsnew.txt
+            echo
+          } > release-notes.md
           gh release create "${GITHUB_REF_NAME}" release/* \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Vibelight ${VERSION}" \
+            --notes-file release-notes.md \
             --generate-notes

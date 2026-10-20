@@ -233,6 +233,7 @@ HEADERS += \
     streaming/input/input.h \
     streaming/session.h \
     streaming/shortcutmenu.h \
+    streaming/vibelight_logic.h \
     streaming/audio/renderers/renderer.h \
     streaming/audio/renderers/sdl.h \
     gui/computermodel.h \

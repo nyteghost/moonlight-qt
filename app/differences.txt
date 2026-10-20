@@ -1,0 +1,37 @@
+Vibelight is a fork of Moonlight (moonlight-qt). Streaming, pairing, video and audio decoding, controller support and Sunshine/GeForce Experience compatibility are the same as upstream. Everything below is what this fork changes or adds.
+
+Name and look
+- Renamed to Vibelight, with a new coral moon-and-spark icon. Internal names such as the "Moonlight" log files and config folders are unchanged so existing settings keep working.
+- New dark navy and indigo color scheme with card-style settings, matching the Vibepollo web UI.
+
+Floating Shortcuts button (Ctrl+Alt+Shift+H)
+- A small always-on-top button over the stream that opens a menu of clickable shortcuts. It stays hidden until you press the hotkey. Esc or a click outside closes it.
+- Keys sent to the remote PC: Ctrl+Alt+Del, Alt+Tab, Task Manager, Win-key shortcuts, and more.
+- Display and monitor shortcuts: Win+P, move a window between monitors, snap and maximize.
+- Pinned and recent shortcuts (right-click to pin).
+- Your own custom shortcuts from a JSON file, edited from the menu.
+- Every Ctrl+Alt+Shift+key action of Moonlight as a button.
+- Stream timer, host info (PC, resolution, codec) and the app version in the menu.
+- Check connection: measures the stream for 10 seconds and suggests a bitrate.
+- Screenshot of the stream and a small latency graph (Windows).
+- Clipboard history: type any of your last 10 copies on the remote PC.
+- Typing mode: Unicode text or real key presses, for terminals and Linux hosts.
+- A startup hint and a "Sent" message after each action.
+
+Streaming behavior
+- Auto-reconnect: if a stream drops, Vibelight tries up to 3 times to resume it.
+- Hold left Ctrl+Alt to release the mouse and move it outside the stream window.
+- Suggested bitrate shown in Settings from the last connection check.
+
+Updates and support
+- The update check uses this fork's GitHub releases instead of upstream's.
+- The update button downloads the new portable zip and checks its SHA-256.
+- Check for updates and Download update buttons in Settings -> Support.
+- Settings -> Support shows the exact version and build, can save a diagnostics file, open the log folder, show What's new and show this list.
+- A What's new window appears the first time a new version runs.
+
+Project and builds
+- Portable Windows zips (x64 and arm64) and a macOS dmg published by a Release workflow when a version tag is pushed.
+- Quick Windows-only builds for branches, with the full set (all platforms) on master and manual runs.
+- A weekly workflow that merges new upstream Moonlight commits into a pull request.
+- A rewritten README covering the features above.

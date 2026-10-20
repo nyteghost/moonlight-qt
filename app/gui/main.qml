@@ -536,6 +536,14 @@ ApplicationWindow {
         whatsNewDialog.open()
     }
 
+    DifferencesDialog {
+        id: differencesDialog
+    }
+
+    function showDifferences() {
+        differencesDialog.open()
+    }
+
     NavigableMessageDialog {
         id: wow64Dialog
         standardButtons: Dialog.Ok | Dialog.Cancel

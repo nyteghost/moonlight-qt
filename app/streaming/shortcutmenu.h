@@ -130,6 +130,8 @@ private:
     std::vector<Item> m_Items;
     std::vector<std::string> m_ColumnTitles;
     int m_NumColumns;
+    std::vector<int> m_ColumnWidths; // each column is as wide as its longest label + hint
+    std::vector<int> m_ColumnX;
     int m_ExpandedWidth;
     int m_ExpandedHeight;
 

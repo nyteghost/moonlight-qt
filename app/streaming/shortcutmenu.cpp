@@ -43,7 +43,9 @@ const int kHeaderHeight = 28;
 const int kPadding = 8;
 const int kTitleHeight = 24;
 const int kRowHeight = 26;
-const int kColumnWidth = 290;
+const int kMinColumnWidth = 200;
+const int kMaxColumnWidth = 440;
+const int kLabelHintGap = 18;
 const int kDefaultTopMargin = 6;
 const int kDragThresholdPx = 4;
 
@@ -948,19 +950,53 @@ void ShortcutMenu::layoutItems()
         m_NumColumns = qMax(m_NumColumns, item.column + 1);
     }
 
+    // Size each column to fit its longest label plus hint, so they never overlap
+    m_ColumnWidths.assign(m_NumColumns, kMinColumnWidth);
+    if (m_Font != nullptr && m_SmallFont != nullptr) {
+        auto textWidth = [](TTF_Font* font, const std::string& text) {
+            int w = 0, h = 0;
+            if (text.empty() || TTF_SizeUTF8(font, text.c_str(), &w, &h) != 0) {
+                return 0;
+            }
+            return w;
+        };
+
+        for (const Item& item : m_Items) {
+            int need = 6 + textWidth(m_Font, item.pinned ? "* " + item.label : item.label) + 6;
+            int hintWidth = textWidth(m_SmallFont, item.hint);
+            if (hintWidth > 0) {
+                need += kLabelHintGap + hintWidth;
+            }
+            if (item.dangerous) {
+                need = qMax(need, 6 + textWidth(m_Font, "Click again to confirm") + 6);
+            }
+            m_ColumnWidths[item.column] = qMax(m_ColumnWidths[item.column], need);
+        }
+        for (int c = 0; c < m_NumColumns && c < (int)m_ColumnTitles.size(); c++) {
+            m_ColumnWidths[c] = qMax(m_ColumnWidths[c], textWidth(m_SmallFont, m_ColumnTitles[c]) + 8);
+        }
+    }
+    int totalWidth = kPadding;
+    m_ColumnX.assign(m_NumColumns, 0);
+    for (int c = 0; c < m_NumColumns; c++) {
+        m_ColumnWidths[c] = qMin(qMax(m_ColumnWidths[c], kMinColumnWidth), kMaxColumnWidth);
+        m_ColumnX[c] = totalWidth;
+        totalWidth += m_ColumnWidths[c] + kPadding;
+    }
+
     std::vector<int> rowY(m_NumColumns, kHeaderHeight + kPadding + kTitleHeight);
     int tallest = rowY[0];
 
     for (Item& item : m_Items) {
-        item.rect.x = kPadding + item.column * (kColumnWidth + kPadding);
+        item.rect.x = m_ColumnX[item.column];
         item.rect.y = rowY[item.column];
-        item.rect.w = kColumnWidth;
+        item.rect.w = m_ColumnWidths[item.column];
         item.rect.h = kRowHeight;
         rowY[item.column] += kRowHeight;
         tallest = qMax(tallest, rowY[item.column]);
     }
 
-    m_ExpandedWidth = kPadding * (m_NumColumns + 1) + kColumnWidth * m_NumColumns;
+    m_ExpandedWidth = totalWidth;
     m_ExpandedHeight = tallest + kPadding;
 }
 
@@ -1559,7 +1595,7 @@ void ShortcutMenu::render()
     if (m_Expanded) {
         for (int c = 0; c < m_NumColumns && c < (int)m_ColumnTitles.size(); c++) {
             drawText(s, m_SmallFont, m_ColumnTitles[c].c_str(), kTitleColor,
-                     kPadding + c * (kColumnWidth + kPadding) + 4,
+                     (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding) + 4,
                      kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2);
         }
 
@@ -1577,7 +1613,11 @@ void ShortcutMenu::render()
 
             drawText(s, m_Font, label, color,
                      item.rect.x + 6, item.rect.y + (item.rect.h - TTF_FontHeight(m_Font)) / 2);
-            if (!confirming) {
+            int labelWidth = 0, hintWidth = 0, unusedHeight = 0;
+            TTF_SizeUTF8(m_Font, labelText.c_str(), &labelWidth, &unusedHeight);
+            TTF_SizeUTF8(m_SmallFont, item.hint.c_str(), &hintWidth, &unusedHeight);
+            const bool hintFits = 6 + labelWidth + kLabelHintGap + hintWidth + 6 <= item.rect.w;
+            if (!confirming && hintFits) {
                 drawText(s, m_SmallFont, item.hint.c_str(), kHintColor,
                          item.rect.x + item.rect.w - 6,
                          item.rect.y + (item.rect.h - TTF_FontHeight(m_SmallFont)) / 2, true);

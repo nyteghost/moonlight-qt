@@ -1,0 +1,19 @@
+Shortcuts menu (Ctrl+Alt+Shift+H)
+- Pin, recents, and your own custom shortcuts (edit them from the menu).
+- Display and monitor shortcuts such as Win+P and Win+Shift+Left/Right.
+- Check connection: watches the stream for 10 seconds and suggests a bitrate.
+- Stream timer, host info and the version in the menu.
+- Screenshot of the stream and a small latency graph (Windows).
+- Clipboard history: type any of your last 10 copies on the remote PC.
+- Typing mode: switch to key presses if text doesn't type into a terminal.
+
+Connection
+- Auto-reconnect: if the stream drops, Vibelight tries up to 3 times to resume.
+- Hold left Ctrl+Alt to release the mouse and move it outside the window.
+
+Updates and support
+- Check for updates and Download update buttons in Settings, with a bitrate suggestion.
+- Save a diagnostics file and open the log folder from Settings -> Support.
+
+Look and feel
+- New Vibepollo-style colors and cards, and a new icon.

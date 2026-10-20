@@ -353,6 +353,30 @@ void SystemProperties::openLogFolder()
     QDesktopServices::openUrl(QUrl::fromLocalFile(Path::getLogDir()));
 }
 
+QString SystemProperties::whatsNewText()
+{
+    QFile file(":/whatsnew.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+bool SystemProperties::shouldShowWhatsNew()
+{
+    if (whatsNewText().isEmpty()) {
+        return false;
+    }
+    QSettings settings;
+    return settings.value("vibelight/lastSeenVersion").toString() != versionString;
+}
+
+void SystemProperties::markWhatsNewSeen()
+{
+    QSettings settings;
+    settings.setValue("vibelight/lastSeenVersion", versionString);
+}
+
 int SystemProperties::suggestedBitrateKbps()
 {
     QSettings settings;

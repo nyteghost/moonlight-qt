@@ -1984,6 +1984,11 @@ Flickable {
                         text: qsTr("Open log folder")
                         onClicked: SystemProperties.openLogFolder()
                     }
+
+                    Button {
+                        text: qsTr("What's new")
+                        onClicked: window.showWhatsNew()
+                    }
                 }
 
                 Label {

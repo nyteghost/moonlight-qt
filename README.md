@@ -85,6 +85,9 @@ Main files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), `ap
 ### Sharper text
 Blurry text when remoted in usually comes from the stream resolution not matching your screen, too low a bitrate, or the codec. Things to try, roughly in order: stream at your monitor's native resolution (fullscreen, or at least 1:1); raise the bitrate (and use **Check connection** to see how much your network can take); use HEVC or AV1 instead of H.264; try **YUV 4:4:4** if your host supports it (Sunshine only; it needs a higher bitrate); and on the host, prefer Windows display scaling of 100% or 150% over odd values like 125%.
 
+## What's new window
+The first time you run a new version (a different number in `app/version.txt`), a **What's new** window shows the notes from `app/whatsnew.txt`. It only appears once per version, and you can open it again any time from **Settings → Support → What's new**. Builds that keep the same version number don't show it again.
+
 ## Support and diagnostics
 Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest.
 
@@ -94,7 +97,7 @@ The **Sync upstream** workflow runs weekly (or by hand from the Actions tab). Wh
 ## Releasing
 Releases are optional. To publish one:
 
-1. Edit `app/version.txt` (for example `6.2.1`) and commit it.
+1. Edit `app/version.txt` (for example `6.2.1`), update `app/whatsnew.txt` with what changed, and commit them.
 2. Tag and push: `git tag v6.2.1 && git push origin v6.2.1`.
 3. The **Release** workflow builds the app and creates a GitHub Release with portable zips (`Vibelight-6.2.1-Windows-x64-portable.zip`, `...-arm64-...`) and a macOS `.dmg`. It stops early if the tag doesn't match `app/version.txt`.
 

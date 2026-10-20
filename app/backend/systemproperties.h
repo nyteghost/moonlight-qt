@@ -47,6 +47,12 @@ public:
     Q_INVOKABLE QString saveDiagnostics();
     Q_INVOKABLE void openLogFolder();
 
+    // "What's new" notes bundled with the app. shouldShowWhatsNew() is true the first time
+    // this version runs; markWhatsNewSeen() remembers that it was shown.
+    Q_INVOKABLE QString whatsNewText();
+    Q_INVOKABLE bool shouldShowWhatsNew();
+    Q_INVOKABLE void markWhatsNewSeen();
+
     Q_INVOKABLE void startAsyncLoad();
     Q_INVOKABLE void waitForAsyncLoad();
     Q_INVOKABLE void refreshDisplays();

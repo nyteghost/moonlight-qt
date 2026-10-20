@@ -54,6 +54,11 @@ ApplicationWindow {
                 wow64Dialog.open()
             }
 
+            // The first launch of a new version shows what changed
+            if (SystemProperties.shouldShowWhatsNew()) {
+                whatsNewDialog.open()
+            }
+
             // Hardware acceleration and unmapped gamepads are checked asynchronously
             SystemProperties.hasHardwareAccelerationChanged.connect(hasHardwareAccelerationChanged)
             SystemProperties.unmappedGamepadsChanged.connect(hasUnmappedGamepadsChanged)
@@ -521,6 +526,14 @@ ApplicationWindow {
                    "Try running with QT_QPA_PLATFORM=wayland or switch to X11.")
         helpText: qsTr("Click the Help button for more information.")
         helpUrl: "https://github.com/moonlight-stream/moonlight-docs/wiki/Fixing-Hardware-Decoding-Problems"
+    }
+
+    WhatsNewDialog {
+        id: whatsNewDialog
+    }
+
+    function showWhatsNew() {
+        whatsNewDialog.open()
     }
 
     NavigableMessageDialog {

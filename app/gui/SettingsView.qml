@@ -7,6 +7,7 @@ import StreamingPreferences 1.0
 import ComputerManager 1.0
 import SdlGamepadKeyNavigation 1.0
 import SystemProperties 1.0
+import AutoUpdateChecker 1.0
 
 Flickable {
     id: settingsPage
@@ -1861,6 +1862,76 @@ Flickable {
                     font.pointSize: 10
                     wrapMode: Text.Wrap
                     opacity: 0.8
+                }
+
+                Row {
+                    spacing: 10
+
+                    Button {
+                        id: checkUpdatesButton
+                        text: checking ? qsTr("Checking...") : qsTr("Check for updates")
+                        property bool checking: false
+                        enabled: !checking
+                        onClicked: {
+                            checking = true
+                            updateStatus.text = ""
+                            AutoUpdateChecker.checkForUpdates()
+                        }
+                    }
+
+                    Button {
+                        id: downloadUpdateButton
+                        text: qsTr("Download update")
+                        visible: false
+                        onClicked: {
+                            visible = false
+                            updateStatus.text = qsTr("Downloading...")
+                            AutoUpdateChecker.downloadUpdate()
+                        }
+                    }
+                }
+
+                Label {
+                    id: updateStatus
+                    width: parent.width
+                    visible: text !== ""
+                    font.pointSize: 10
+                    wrapMode: Text.Wrap
+
+                    function checkFinished(updateAvailable, message) {
+                        checkUpdatesButton.checking = false
+                        text = message
+                        downloadUpdateButton.visible = updateAvailable && AutoUpdateChecker.hasDownload()
+                    }
+
+                    function downloadProgress(received, total) {
+                        if (total > 0 && text.indexOf(qsTr("Downloading")) === 0) {
+                            text = qsTr("Downloading... %1%").arg(Math.floor(received * 100 / total))
+                        }
+                    }
+
+                    function downloadFinished(path) {
+                        text = qsTr("Downloaded to %1").arg(path)
+                    }
+
+                    function downloadFailed(message) {
+                        text = message
+                    }
+
+                    // Plain connect()/disconnect() keeps this working on every supported Qt version
+                    Component.onCompleted: {
+                        AutoUpdateChecker.onCheckFinished.connect(checkFinished)
+                        AutoUpdateChecker.downloadProgress.connect(downloadProgress)
+                        AutoUpdateChecker.downloadFinished.connect(downloadFinished)
+                        AutoUpdateChecker.downloadFailed.connect(downloadFailed)
+                    }
+
+                    Component.onDestruction: {
+                        AutoUpdateChecker.onCheckFinished.disconnect(checkFinished)
+                        AutoUpdateChecker.downloadProgress.disconnect(downloadProgress)
+                        AutoUpdateChecker.downloadFinished.disconnect(downloadFinished)
+                        AutoUpdateChecker.downloadFailed.disconnect(downloadFailed)
+                    }
                 }
 
                 Row {

@@ -15,6 +15,23 @@
 AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     QObject(parent)
 {
+    m_Nam = nullptr;
+    ensureNetworkManager();
+
+    QString currentVersion(VERSION_STR);
+    qDebug() << "Current Vibelight version:" << currentVersion;
+    parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
+
+    // Should at least have a 1.0-style version number
+    Q_ASSERT(m_CurrentVersionQuad.count() > 1);
+}
+
+void AutoUpdateChecker::ensureNetworkManager()
+{
+    if (m_Nam != nullptr) {
+        return;
+    }
+
     m_Nam = new QNetworkAccessManager(this);
 
     // Never communicate over HTTP
@@ -25,23 +42,12 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
 
     connect(m_Nam, &QNetworkAccessManager::finished,
             this, &AutoUpdateChecker::handleUpdateCheckRequestFinished);
-
-    QString currentVersion(VERSION_STR);
-    qDebug() << "Current Vibelight version:" << currentVersion;
-    parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
-
-    // Should at least have a 1.0-style version number
-    Q_ASSERT(m_CurrentVersionQuad.count() > 1);
 }
 
-void AutoUpdateChecker::start()
+void AutoUpdateChecker::sendCheckRequest()
 {
-    if (!m_Nam) {
-        Q_ASSERT(m_Nam);
-        return;
-    }
+    ensureNetworkManager();
 
-#if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN) || defined(STEAM_LINK) || defined(APP_IMAGE) // Only run update checker on platforms without auto-update
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && QT_VERSION < QT_VERSION_CHECK(5, 15, 1) && !defined(QT_NO_BEARERMANAGEMENT)
     // HACK: Set network accessibility to work around QTBUG-80947 (introduced in Qt 5.14.0 and fixed in Qt 5.15.1)
     QT_WARNING_PUSH
@@ -62,7 +68,23 @@ void AutoUpdateChecker::start()
     request.setAttribute(QNetworkRequest::HTTP2AllowedAttribute, true);
 #endif
     m_Nam->get(request);
+}
+
+void AutoUpdateChecker::start()
+{
+#if defined(Q_OS_WIN32) || defined(Q_OS_DARWIN) || defined(STEAM_LINK) || defined(APP_IMAGE) // Only run the automatic check on platforms without auto-update
+    sendCheckRequest();
 #endif
+}
+
+void AutoUpdateChecker::checkForUpdates()
+{
+    if (m_DownloadReply != nullptr) {
+        emit onCheckFinished(false, tr("An update is already downloading."));
+        return;
+    }
+
+    sendCheckRequest();
 }
 
 void AutoUpdateChecker::parseStringToVersionQuad(QString& string, QVector<int>& version)
@@ -306,6 +328,7 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
 
     // Delete the QNetworkAccessManager to free resources and
     // prevent the bearer plugin from polling in the background.
+    // A new one is created if another check is requested later.
     m_Nam->deleteLater();
     m_Nam = nullptr;
 
@@ -326,12 +349,14 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonString.toUtf8(), &error);
         if (jsonDoc.isNull() || !jsonDoc.isObject()) {
             qWarning() << "GitHub release response malformed:" << error.errorString();
+            emit onCheckFinished(false, tr("Couldn't read the update information from GitHub."));
             return;
         }
 
         QJsonObject release = jsonDoc.object();
         if (!release["tag_name"].isString() || !release["html_url"].isString()) {
             qWarning() << "GitHub release response missing tag_name or html_url";
+            emit onCheckFinished(false, tr("Couldn't read the update information from GitHub."));
             return;
         }
 
@@ -344,9 +369,11 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         parseStringToVersionQuad(latestVersion, latestVersionQuad);
         if (latestVersionQuad.isEmpty()) {
             qWarning() << "Unable to parse release tag as a version:" << latestVersion;
+            emit onCheckFinished(false, tr("The latest release (%1) doesn't have a version number Vibelight understands.").arg(latestVersion));
             return;
         }
 
+        QString currentVersion(VERSION_STR);
         int res = compareVersion(m_CurrentVersionQuad, latestVersionQuad);
         if (res < 0) {
             // m_CurrentVersionQuad < latestVersionQuad
@@ -356,21 +383,27 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
                 displayVersion.remove(0, 1);
             }
             emit onUpdateAvailable(displayVersion, release["html_url"].toString());
+            emit onCheckFinished(true, tr("Update available: version %1 (you have %2).").arg(displayVersion, currentVersion));
         }
         else if (res > 0) {
             qDebug() << "Latest release is older than the current version";
+            emit onCheckFinished(false, tr("You're running version %1, which is newer than the latest release (%2).").arg(currentVersion, latestVersion));
         }
         else {
             qDebug() << "Latest release matches the current version";
+            emit onCheckFinished(false, tr("You're up to date (version %1).").arg(currentVersion));
         }
     }
     else if (reply->error() == QNetworkReply::ContentNotFoundError) {
         // The repository has no published releases yet
         qDebug() << "No Vibelight releases published yet";
         reply->deleteLater();
+        emit onCheckFinished(false, tr("No releases have been published yet."));
     }
     else {
         qWarning() << "Update checking failed with error:" << reply->error();
+        QString errorText = reply->errorString();
         reply->deleteLater();
+        emit onCheckFinished(false, tr("Couldn't check for updates: %1").arg(errorText));
     }
 }

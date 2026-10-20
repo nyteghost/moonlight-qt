@@ -15,6 +15,10 @@ public:
 
     Q_INVOKABLE void start();
 
+    // Checks GitHub for a newer release right now (used by the "Check for updates" button).
+    // Works on every platform and always reports a result through onCheckFinished().
+    Q_INVOKABLE void checkForUpdates();
+
     // Downloads the release asset found by the update check (the portable zip on
     // Windows) into the user's Downloads folder. Progress is reported via signals.
     Q_INVOKABLE void downloadUpdate();
@@ -27,6 +31,9 @@ public:
 
 signals:
     void onUpdateAvailable(QString newVersion, QString url);
+
+    // Emitted when any check completes, with a short human-readable result
+    void onCheckFinished(bool updateAvailable, QString message);
     void downloadProgress(qint64 received, qint64 total);
     void downloadFinished(QString filePath);
     void downloadFailed(QString message);
@@ -35,6 +42,9 @@ private slots:
     void handleUpdateCheckRequestFinished(QNetworkReply* reply);
 
 private:
+    void ensureNetworkManager();
+    void sendCheckRequest();
+
     void parseStringToVersionQuad(QString& string, QVector<int>& version);
 
     int compareVersion(QVector<int>& version1, QVector<int>& version2);

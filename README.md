@@ -23,12 +23,14 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 - **Displays & windows (sent to the remote PC):** projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), reset the graphics driver (Win+Ctrl+Shift+B). These change windows and display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
 - **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned shortcuts and your four most recently used ones appear in a column on the left.
 - **Custom shortcuts:** your own buttons in extra columns, up to 28 entries (see below).
+- **Typing mode:** how "Paste clipboard as typing" (Ctrl+Alt+Shift+V), clipboard history entries and your custom text shortcuts reach the remote PC. **Unicode** (the default) sends the text itself, which works on Windows hosts in any keyboard layout. **Key presses** sends real key events for US-keyboard characters, which is what to use for terminals and Linux hosts, where Unicode input can be ignored or trigger shortcuts like GTK Inspector. It assumes a US layout on the host, and characters with no key (accents, emoji) are still sent as Unicode. The choice is saved.
 - **Clipboard history:** the last 10 things you copied on this PC, as a column on the right. Click one to type it on the remote PC. The list is kept in memory only, is never saved to disk, and is gone when the stream ends. **Clear history** empties it right away. Anything you copy while streaming can appear here, including passwords, so clear it if that matters.
 
 **Feedback and tools**
 - **Hint:** the first three streams, the button appears for a few seconds saying how to open it. If your custom shortcuts file has a problem, you get a short warning at the start of every stream.
 - **"Sent" message:** after you choose a shortcut, the button briefly shows what was sent.
 - **Stream timer:** the button shows how long the stream has been running.
+- **Version:** the bottom-right corner of the open menu shows the Vibelight version and build, for example `Vibelight 6.2.0 (80f7297)`, so you can tell which build you're running without opening Settings.
 - **Host info:** the open menu's header shows the PC name, stream resolution and frame rate, and codec (for example `DESKTOP-PC  |  1920x1080@60  |  HEVC 10-bit`) when there is room.
 - **Screenshot of stream (Windows):** saves a PNG of the stream window to `Pictures\Vibelight`. The menu and graph hide first so they aren't in the picture. It copies what is on screen, so exclusive fullscreen or protected video can come out black.
 - **Latency graph (Windows):** a small click-through panel in the bottom-left corner with the last 60 seconds of round-trip time (blue line) and dropped frames (red bars). Toggle it from the menu; it is off by default.

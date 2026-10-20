@@ -178,6 +178,12 @@ public:
     // (e.g. {0xA2, 0xA4, 0x2E} = Ctrl+Alt+Del)
     void sendHostKeyCombo(const unsigned short* vkCodes, int count);
 
+    // Types text on the host. By default it is sent as Unicode text. With the "typing mode"
+    // option set to key presses (menu), plain US-keyboard characters are sent as real key
+    // events instead, which works in terminals and on Linux hosts where Unicode input
+    // is unreliable. Characters with no key (accents, emoji, ...) still go as Unicode.
+    void typeText(const char* utf8, size_t length);
+
 private:
     GamepadState*
     findStateForGamepad(SDL_JoystickID id);

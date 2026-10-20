@@ -53,6 +53,7 @@ private:
         KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
         KindClipboard,  // type one of the recent local clipboard entries on the remote PC
         KindClearClips, // forget the clipboard history
+        KindToggleTyping, // switch between Unicode text and key presses for typing text
         KindScreenshot, // save the current stream picture as a PNG
         KindToggleGraph, // show/hide the small latency graph
         KindInfo        // non-clickable message (for example a config error)
@@ -130,6 +131,8 @@ private:
     std::vector<Item> m_Items;
     std::vector<std::string> m_ColumnTitles;
     int m_NumColumns;
+    std::vector<int> m_ColumnWidths; // each column is as wide as its longest label + hint
+    std::vector<int> m_ColumnX;
     int m_ExpandedWidth;
     int m_ExpandedHeight;
 

@@ -1967,7 +1967,8 @@ Flickable {
                     }
                 }
 
-                Row {
+                Flow {
+                    width: parent.width
                     spacing: 10
 
                     Button {
@@ -1988,6 +1989,11 @@ Flickable {
                     Button {
                         text: qsTr("What's new")
                         onClicked: window.showWhatsNew()
+                    }
+
+                    Button {
+                        text: qsTr("Differences from Moonlight")
+                        onClicked: window.showDifferences()
                     }
                 }
 

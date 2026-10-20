@@ -50,6 +50,7 @@ public:
     // "What's new" notes bundled with the app. shouldShowWhatsNew() is true the first time
     // this version runs; markWhatsNewSeen() remembers that it was shown.
     Q_INVOKABLE QString whatsNewText();
+    Q_INVOKABLE QString differencesText();
     Q_INVOKABLE bool shouldShowWhatsNew();
     Q_INVOKABLE void markWhatsNewSeen();
 

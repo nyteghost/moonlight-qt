@@ -362,6 +362,15 @@ QString SystemProperties::whatsNewText()
     return QString::fromUtf8(file.readAll()).trimmed();
 }
 
+QString SystemProperties::differencesText()
+{
+    QFile file(":/differences.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
 bool SystemProperties::shouldShowWhatsNew()
 {
     if (whatsNewText().isEmpty()) {

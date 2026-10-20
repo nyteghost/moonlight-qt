@@ -85,6 +85,9 @@ Main files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), `ap
 ### Sharper text
 Blurry text when remoted in usually comes from the stream resolution not matching your screen, too low a bitrate, or the codec. Things to try, roughly in order: stream at your monitor's native resolution (fullscreen, or at least 1:1); raise the bitrate (and use **Check connection** to see how much your network can take); use HEVC or AV1 instead of H.264; try **YUV 4:4:4** if your host supports it (Sunshine only; it needs a higher bitrate); and on the host, prefer Windows display scaling of 100% or 150% over odd values like 125%.
 
+## Differences from Moonlight
+**Settings → Support → Differences from Moonlight** lists everything this fork changes or adds, with a button that opens GitHub's side-by-side code comparison against the original `moonlight-stream/moonlight-qt`. The list is the file `app/differences.txt`, so update it when you add a feature.
+
 ## What's new window
 The first time you run a new version (a different number in `app/version.txt`), a **What's new** window shows the notes from `app/whatsnew.txt`. It only appears once per version, and you can open it again any time from **Settings → Support → What's new**. Builds that keep the same version number don't show it again.
 

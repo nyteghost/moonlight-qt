@@ -226,6 +226,8 @@ private:
     GamepadState m_GamepadState[MAX_GAMEPADS];
     QSet<uint32_t> m_KeysDown;
     bool m_FakeMouseCaptureActive;
+    bool m_CtrlAltReleaseEnabled;
+    bool m_CtrlAltMouseReleased;
     bool m_KeyboardCaptureActive;
     QString m_OldIgnoreDevices;
     QString m_OldIgnoreDevicesExcept;

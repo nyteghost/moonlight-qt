@@ -40,8 +40,13 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected mouse capture toggle combo");
 
-        // Stop handling future input
-        setCaptureActive(!isCaptureActive());
+        // Stop handling future input. A hold-Ctrl+Alt release counts as "captured"
+        // so this combo still means what the user expects.
+        {
+            bool wasCaptured = isCaptureActive() || m_CtrlAltMouseReleased;
+            m_CtrlAltMouseReleased = false;
+            setCaptureActive(!wasCaptured);
+        }
 
         // Force raise all keys to ensure they aren't stuck,
         // since we won't get their key up events.
@@ -238,6 +243,26 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
         // Ignore repeat key down events
         SDL_assert(event->state == SDL_PRESSED);
         return;
+    }
+
+    // Holding left Alt + Ctrl frees the mouse so it can leave the window. Keys are
+    // still forwarded to the host untouched. Left Alt only, since AltGr reports
+    // as Ctrl+RAlt on many layouts. Special combos below are unaffected.
+    if (m_CtrlAltReleaseEnabled) {
+        bool ctrlAltHeld = (event->keysym.mod & KMOD_CTRL) && (event->keysym.mod & KMOD_LALT);
+        if (ctrlAltHeld && !m_CtrlAltMouseReleased && isCaptureActive()) {
+            m_CtrlAltMouseReleased = true;
+            setCaptureActive(false);
+        }
+        else if (!ctrlAltHeld && m_CtrlAltMouseReleased) {
+            m_CtrlAltMouseReleased = false;
+            // Only re-grab if the pointer is still over our window. Otherwise the
+            // user clicked elsewhere or is mid-move, and the normal click-to-capture
+            // path takes over.
+            if (SDL_GetMouseFocus() == m_Window && !isCaptureActive()) {
+                setCaptureActive(true);
+            }
+        }
     }
 
     // Check for our special key combos

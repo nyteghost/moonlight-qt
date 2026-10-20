@@ -361,6 +361,17 @@ void ShortcutMenu::buildItems()
     client("Show/hide cursor",         "C", SdlInputHandler::KeyComboToggleCursorHide, false);
     client("Minimize",                 "D", SdlInputHandler::KeyComboToggleMinimize, false);
     client("Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
+    {
+        Item item;
+        item.label = "Typing mode";
+        item.hint = QSettings().value("vibelight/typeAsKeyPresses", false).toBool() ? "key presses" : "unicode";
+        item.kind = KindToggleTyping;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 1;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    }
     client("Pointer region lock",      "L", SdlInputHandler::KeyComboTogglePointerRegionLock, false);
     client("System key capture",       "K", SdlInputHandler::KeyComboToggleKeyboardGrab, false);
     {
@@ -1244,7 +1255,7 @@ void ShortcutMenu::execute(const Item& itemRef)
         // Make sure no held keys interfere with the text being typed. These entries are
         // never added to pinned/recent, since those are saved to disk.
         m_Input->raiseAllKeys();
-        LiSendUtf8TextEvent(item.text.c_str(), (unsigned int)item.text.size());
+        m_Input->typeText(item.text.c_str(), item.text.size());
         showTransient("Typed clipboard entry", 2000);
         return;
     }
@@ -1271,6 +1282,14 @@ void ShortcutMenu::execute(const Item& itemRef)
         return;
     }
 
+    if (item.kind == KindToggleTyping) {
+        QSettings settings;
+        const bool asKeys = !settings.value("vibelight/typeAsKeyPresses", false).toBool();
+        settings.setValue("vibelight/typeAsKeyPresses", asKeys);
+        showTransient(asKeys ? "Typing as key presses" : "Typing as Unicode text", 2500);
+        return;
+    }
+
     switch (item.kind) {
     case KindClient:
         m_Input->performSpecialKeyCombo((SdlInputHandler::KeyCombo)item.clientCombo);
@@ -1281,7 +1300,7 @@ void ShortcutMenu::execute(const Item& itemRef)
     case KindHostText:
         // Make sure no held keys interfere with the text being typed
         m_Input->raiseAllKeys();
-        LiSendUtf8TextEvent(item.text.c_str(), (unsigned int)item.text.size());
+        m_Input->typeText(item.text.c_str(), item.text.size());
         break;
     default:
         break;

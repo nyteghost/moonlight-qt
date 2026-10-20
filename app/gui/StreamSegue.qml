@@ -3,16 +3,20 @@ import QtQuick.Controls 2.2
 import QtQuick.Window 2.2
 
 import SdlGamepadKeyNavigation 1.0
+import StreamingPreferences 1.0
 import Session 1.0
 import SystemProperties 1.0
 
 Item {
     property Session session
     property string appName
-    property string stageText : isResume ? qsTr("Resuming %1...").arg(appName) :
+    property string stageText : reconnectAttempt > 0 ? qsTr("Connection lost. Reconnecting (attempt %1 of %2)...").arg(reconnectAttempt).arg(maxReconnectAttempts) :
+                                isResume ? qsTr("Resuming %1...").arg(appName) :
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
     property bool quitAfter : false
+    property int reconnectAttempt : 0
+    readonly property int maxReconnectAttempts : 3
 
     function stageStarting(stage)
     {
@@ -59,8 +63,41 @@ Item {
         window.visible = true
     }
 
+    function tryReconnect()
+    {
+        if (quitAfter || reconnectAttempt >= maxReconnectAttempts || !session || !session.wantsReconnect()) {
+            return false
+        }
+
+        var next = session.createReconnectSession()
+        if (!next) {
+            return false
+        }
+
+        // Drop the error from the dropped stream, the new attempt reports its own
+        streamSegueErrorDialog.text = ""
+
+        // Show the Qt window again so the "Reconnecting" text is visible
+        window.visible = true
+        SdlGamepadKeyNavigation.enable()
+
+        var component = Qt.createComponent("StreamSegue.qml")
+        var segue = component.createObject(stackView, {
+                                               "appName": appName,
+                                               "session": next,
+                                               "isResume": true,
+                                               "reconnectAttempt": reconnectAttempt + 1
+                                           })
+        stackView.replace(stackView.currentItem, segue, StackView.Immediate)
+        return true
+    }
+
     function sessionFinished(portTestResult)
     {
+        if (tryReconnect()) {
+            return
+        }
+
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Vibelight. Streaming over the Internet may not work while connected to this network.")
         }
@@ -125,8 +162,20 @@ Item {
         // since it may currently be using the SDL video subsystem
         SystemProperties.waitForAsyncLoad()
 
-        // Kick off the stream
-        streamLoader.active = true
+        // Kick off the stream. When reconnecting, give the old session a
+        // moment to finish tearing down and the host time to notice the drop.
+        if (reconnectAttempt > 0) {
+            reconnectDelayTimer.start()
+        }
+        else {
+            streamLoader.active = true
+        }
+    }
+
+    Timer {
+        id: reconnectDelayTimer
+        interval: 2500
+        onTriggered: streamLoader.active = true
     }
 
     Timer {

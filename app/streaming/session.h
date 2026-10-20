@@ -106,6 +106,10 @@ public:
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
+
+    // Auto-reconnect support (used by StreamSegue.qml)
+    Q_INVOKABLE bool wantsReconnect() const;
+    Q_INVOKABLE Session* createReconnectSession();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -131,6 +135,9 @@ public:
 
     // Used by the shortcut menu's connection check
     bool getConnectionSnapshot(CONNECTION_SNAPSHOT& snapshot);
+
+    // "PC name  |  1920x1080@60  |  HEVC 10-bit", shown in the shortcut menu
+    std::string getStreamSummary() const;
     int getConfiguredBitrateKbps() const
     {
         return m_StreamConfig.bitrate;
@@ -270,6 +277,9 @@ private:
     Uint32 m_FullScreenFlag;
     QQuickWindow* m_QtWindow;
     bool m_UnexpectedTermination;
+    bool m_StreamStarted = false;       // The SDL stream loop was entered
+    bool m_IsReconnectAttempt = false;  // This session was created to resume a dropped one
+    bool m_ReconnectEligible = false;   // The way this session ended is worth retrying
     SdlInputHandler* m_InputHandler;
     ShortcutMenu* m_ShortcutMenu;
     int m_MouseEmulationRefCount;

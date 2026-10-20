@@ -29,6 +29,7 @@ While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shor
 - **Hint:** the first three streams, the button appears for a few seconds saying how to open it. If your custom shortcuts file has a problem, you get a short warning at the start of every stream.
 - **"Sent" message:** after you choose a shortcut, the button briefly shows what was sent.
 - **Stream timer:** the button shows how long the stream has been running.
+- **Version:** the bottom-right corner of the open menu shows the Vibelight version and build, for example `Vibelight 6.2.0 (80f7297)`, so you can tell which build you're running without opening Settings.
 - **Host info:** the open menu's header shows the PC name, stream resolution and frame rate, and codec (for example `DESKTOP-PC  |  1920x1080@60  |  HEVC 10-bit`) when there is room.
 - **Screenshot of stream (Windows):** saves a PNG of the stream window to `Pictures\Vibelight`. The menu and graph hide first so they aren't in the picture. It copies what is on screen, so exclusive fullscreen or protected video can come out black.
 - **Latency graph (Windows):** a small click-through panel in the bottom-left corner with the last 60 seconds of round-trip time (blue line) and dropped frames (red bars). Toggle it from the menu; it is off by default.

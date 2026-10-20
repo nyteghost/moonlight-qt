@@ -387,6 +387,16 @@ void SystemProperties::setShortcutMenuHotkey(const QString& letter)
                       QString(QChar(vibelight::sanitizeMenuHotkey(letter.toStdString()))));
 }
 
+bool SystemProperties::shortcutMenuAutoHide()
+{
+    return QSettings().value("vibelight/menuAutoHide", false).toBool();
+}
+
+void SystemProperties::setShortcutMenuAutoHide(bool hide)
+{
+    QSettings().setValue("vibelight/menuAutoHide", hide);
+}
+
 QString SystemProperties::problemReportUrl()
 {
     QString body;

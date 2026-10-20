@@ -5,7 +5,7 @@ Name and look
 - New dark navy and indigo color scheme with card-style settings, matching the Vibepollo web UI.
 
 Floating Shortcuts button (Ctrl+Alt+Shift+H)
-- A small always-on-top button over the stream that opens a menu of clickable shortcuts. It stays hidden until you press the hotkey. Esc or a click outside closes it.
+- A small round always-on-top button over the stream that opens a menu of clickable shortcuts (drag it anywhere; an option hides it until you press the hotkey). Esc or a click outside closes the menu.
 - Keys sent to the remote PC: Ctrl+Alt+Del, Alt+Tab, Task Manager, Win-key shortcuts, and more.
 - Display and monitor shortcuts: Win+P, move a window between monitors, snap and maximize.
 - Pinned and recent shortcuts (right-click to pin).
@@ -20,7 +20,7 @@ Floating Shortcuts button (Ctrl+Alt+Shift+H)
 
 Streaming behavior
 - Auto-reconnect: if a stream drops, Vibelight tries up to 3 times to resume it.
-- Hold left Ctrl+Alt to release the mouse and move it outside the stream window.
+- Hold left Ctrl+Alt+M to release the mouse and move it outside the stream window.
 - Suggested bitrate shown in Settings from the last connection check.
 
 Updates and support

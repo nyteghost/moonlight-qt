@@ -287,6 +287,7 @@ void SdlInputHandler::notifyFocusLost()
 {
     // Another window took over, so the hold-Ctrl+Alt release no longer applies
     m_CtrlAltMouseReleased = false;
+    m_ReleaseKeyHeld = false;
 
     // Release mouse cursor when another window is activated (e.g. by using ALT+TAB).
     // This lets user to interact with our window's title bar and with the buttons in it.

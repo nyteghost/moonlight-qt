@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 #ifdef Q_OS_WIN32
 #ifndef NOMINMAX
@@ -39,7 +40,8 @@
 
 namespace {
 
-const int kCollapsedWidth = 190;
+const int kCollapsedWidth = 190; // minimum width of the message pill
+const int kCircleSize = 40;       // the closed button is a small circle
 const int kHeaderHeight = 28;
 const int kPadding = 8;
 const int kTitleHeight = 24;
@@ -78,15 +80,18 @@ void fillRoundRect(SDL_Surface* dst, SDL_Rect r, int radius, Uint32 color)
 {
     radius = qMin(radius, qMin(r.w, r.h) / 2);
     for (int row = 0; row < r.h; row++) {
-        int inset = 0;
+        // How far this row is from the nearest straight edge, measured to the row's centre
+        double dy = -1.0;
         if (row < radius) {
-            inset = radius - row;
+            dy = radius - row - 0.5;
         }
         else if (row >= r.h - radius) {
-            inset = radius - (r.h - 1 - row);
+            dy = row - (r.h - radius) + 0.5;
         }
-        // Soften the corner: the first rows lose more width than a plain step
-        inset = (inset * inset + radius - 1) / qMax(radius, 1);
+        int inset = 0;
+        if (dy > 0 && radius > 0) {
+            inset = (int)(radius - std::sqrt((double)radius * radius - dy * dy) + 0.5);
+        }
         SDL_Rect line = { r.x + inset, r.y + row, r.w - inset * 2, 1 };
         if (line.w > 0) {
             SDL_FillRect(dst, &line, color);
@@ -186,12 +191,27 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
 #endif
     SDL_Window* window = SDL_CreateWindow("Vibelight Shortcuts",
                                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                          kCollapsedWidth, kHeaderHeight, flags);
+                                          kCircleSize, kCircleSize, flags);
     if (window == nullptr) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: SDL_CreateWindow() failed: %s", SDL_GetError());
         return;
     }
     m_Window = window;
+
+    // By default the round button is always on top of the stream. The Settings page can
+    // switch to the older behavior of staying hidden until the hotkey is pressed.
+    QSettings settings;
+    m_AutoHide = settings.value("vibelight/menuAutoHide", false).toBool();
+    m_Revealed = !m_AutoHide;
+
+    // Remember where the button was dragged to (relative to the stream window)
+    if (settings.contains("vibelight/menuOffsetX") && settings.contains("vibelight/menuOffsetY")) {
+        m_HasCustomPosition = true;
+        m_OffsetX = settings.value("vibelight/menuOffsetX").toInt();
+        m_OffsetY = settings.value("vibelight/menuOffsetY").toInt();
+    }
+
+    applyShape();
 }
 
 ShortcutMenu::~ShortcutMenu()
@@ -888,6 +908,7 @@ void ShortcutMenu::showTransient(const std::string& message, unsigned int durati
         textWidth = (int)message.size() * 9;
     }
     SDL_SetWindowSize(m_Window, qMax(kCollapsedWidth, textWidth + 28), kHeaderHeight);
+    applyShape();
 
     m_Revealed = true;
     updatePosition();
@@ -906,7 +927,7 @@ void ShortcutMenu::endTransient()
     }
 
     if (!m_Expanded) {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
 
     if (hide && !m_Expanded) {
@@ -1048,7 +1069,12 @@ void ShortcutMenu::showHint()
     settings.setValue("vibelight/hintShownCount", shown + 1);
     const char letter = vibelight::sanitizeMenuHotkey(
                 QSettings().value("vibelight/menuHotkey", "H").toString().toStdString());
-    showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
+    if (m_AutoHide) {
+        showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
+    }
+    else {
+        showTransient(std::string("Click the round button or press Ctrl+Alt+Shift+") + letter + " for shortcuts", 6000);
+    }
 }
 
 void ShortcutMenu::layoutItems()
@@ -1249,13 +1275,59 @@ void ShortcutMenu::setExpanded(bool expanded)
 
     if (expanded) {
         SDL_SetWindowSize(m_Window, m_ExpandedWidth, m_ExpandedHeight);
+        applyShape();
     }
     else {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
 
     updatePosition();
     render();
+}
+
+int ShortcutMenu::headerHeight() const
+{
+    // The open menu and the message pill have a bar on top; the closed button is all "header"
+    return (m_Expanded || m_TransientUntil != 0) ? kHeaderHeight : kCircleSize;
+}
+
+void ShortcutMenu::applyCollapsedSize()
+{
+    SDL_SetWindowSize(m_Window, kCircleSize, kCircleSize);
+    applyShape();
+}
+
+void ShortcutMenu::savePosition() const
+{
+    QSettings settings;
+    settings.setValue("vibelight/menuOffsetX", m_OffsetX);
+    settings.setValue("vibelight/menuOffsetY", m_OffsetY);
+}
+
+void ShortcutMenu::applyShape()
+{
+#ifdef Q_OS_WIN32
+    // Make the closed button a real circle and the message a pill by clipping the window
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (m_Window == nullptr || !SDL_GetWindowWMInfo(m_Window, &info)) {
+        return;
+    }
+
+    HWND hwnd = info.info.win.window;
+    int w = 0, h = 0;
+    SDL_GetWindowSize(m_Window, &w, &h);
+
+    if (m_Expanded) {
+        SetWindowRgn(hwnd, nullptr, TRUE);
+    }
+    else if (m_TransientUntil != 0) {
+        SetWindowRgn(hwnd, CreateRoundRectRgn(0, 0, w + 1, h + 1, h, h), TRUE);
+    }
+    else {
+        SetWindowRgn(hwnd, CreateEllipticRgn(0, 0, w + 1, h + 1), TRUE);
+    }
+#endif
 }
 
 void ShortcutMenu::close(bool refocusStream)
@@ -1285,11 +1357,11 @@ void ShortcutMenu::dismiss(bool refocusStream)
 
     endDrag();
     m_HeaderHover = false;
-    m_Revealed = false;
+    m_Revealed = !m_AutoHide;
     m_TransientUntil = 0;
     m_TransientOwnsReveal = false;
     if (!m_Expanded) {
-        SDL_SetWindowSize(m_Window, kCollapsedWidth, kHeaderHeight);
+        applyCollapsedSize();
     }
     updatePosition();
     overrideMinimizeOnFocusLoss(false);
@@ -1305,8 +1377,8 @@ void ShortcutMenu::toggleFromHotkey()
                 "Shortcut menu: toggle requested (revealed=%d, shown=%d, expanded=%d, transient=%d)",
                 (int)m_Revealed, (int)m_Shown, (int)m_Expanded, (int)(m_TransientUntil != 0));
 
-    if (m_Revealed && m_TransientUntil == 0) {
-        // Pressing the hotkey again hides the button
+    if (m_Revealed && m_TransientUntil == 0 && (m_AutoHide || m_Expanded)) {
+        // Pressing the hotkey again closes the menu (and hides the button if it is set to hide)
         dismiss(true);
         return;
     }
@@ -1432,7 +1504,7 @@ int ShortcutMenu::hitTest(int x, int y) const
 
 void ShortcutMenu::handleClick(int x, int y)
 {
-    if (y < kHeaderHeight) {
+    if (y < headerHeight()) {
         if (m_Expanded) {
             close(true);
         }
@@ -1609,7 +1681,7 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         }
         else {
             int hover = hitTest(event.motion.x, event.motion.y);
-            bool headerHover = event.motion.y < kHeaderHeight;
+            bool headerHover = event.motion.y < headerHeight();
             if (hover != m_HoverIndex || headerHover != m_HeaderHover) {
                 m_HoverIndex = hover;
                 m_HeaderHover = headerHover;
@@ -1622,12 +1694,12 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.button.windowID != id) {
             return false;
         }
-        if (event.button.button == SDL_BUTTON_RIGHT && m_Expanded && event.button.y >= kHeaderHeight) {
+        if (event.button.button == SDL_BUTTON_RIGHT && m_Expanded && event.button.y >= headerHeight()) {
             // Right-click pins or unpins a shortcut
             togglePin(hitTest(event.button.x, event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_LEFT) {
-            if (event.button.y < kHeaderHeight) {
+            if (event.button.y < headerHeight()) {
                 // Might become a drag or a click; decided on button up
                 beginDrag(event.button.x, event.button.y);
             }
@@ -1644,6 +1716,9 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.button.button == SDL_BUTTON_LEFT && m_MouseDown) {
             bool wasDragging = m_Dragging;
             endDrag();
+            if (wasDragging) {
+                savePosition();
+            }
             if (!wasDragging) {
                 handleClick(event.button.x, event.button.y);
             }
@@ -1720,6 +1795,24 @@ void ShortcutMenu::render()
     Uint32 headerColor = m_HeaderHover ? SDL_MapRGB(s->format, 0x7A, 0x7D, 0xF5) : SDL_MapRGB(s->format, 0x63, 0x66, 0xF1);
     Uint32 hoverColor = SDL_MapRGB(s->format, 0x1A, 0x23, 0x40);
     Uint32 chevronColor = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
+
+    // Closed: a small round button with a "menu" icon
+    if (!m_Expanded && m_TransientUntil == 0) {
+        SDL_FillRect(s, nullptr, background);
+        SDL_Rect whole = { 0, 0, s->w, s->h };
+        fillRoundRect(s, whole, s->w / 2, SDL_MapRGB(s->format, 0xA5, 0xB4, 0xFC));
+        SDL_Rect disc = { 2, 2, s->w - 4, s->h - 4 };
+        fillRoundRect(s, disc, disc.w / 2, headerColor);
+
+        Uint32 white = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
+        for (int bar = -1; bar <= 1; bar++) {
+            SDL_Rect line = { s->w / 2 - 8, s->h / 2 - 1 + bar * 5, 16, 2 };
+            fillRoundRect(s, line, 1, white);
+        }
+
+        SDL_UpdateWindowSurface(m_Window);
+        return;
+    }
 
     SDL_FillRect(s, nullptr, border);
     SDL_Rect inner = { 1, 1, s->w - 2, s->h - 2 };

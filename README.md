@@ -101,7 +101,7 @@ Releases are optional. To publish one:
 The in-app update indicator only shows something once a release like this exists with a higher version than the installed one.
 
 ## Downloads
-Until you publish a release, build artifacts come from GitHub Actions: open the **Actions** tab of this repository, pick a run of the **Build** workflow, and download the `Vibelight-Windows-x64-*` artifact (or `-arm64-`). It is an unpacked folder. Create an empty file called `portable.dat` next to `Vibelight.exe` to run it in portable mode, where settings are stored next to the program.
+Until you publish a release, build artifacts come from GitHub Actions: open the **Actions** tab of this repository, pick a run of the **Build** workflow, and download the `Vibelight-Windows-x64-*` artifact. It is an unpacked folder. Branch pushes only build Windows x64 so they finish quickly; runs on `master` (and manual runs from the Actions tab: **Build → Run workflow**) also build Windows arm64, macOS, the Linux AppImage and Steam Link. Create an empty file called `portable.dat` next to `Vibelight.exe` to run it in portable mode, where settings are stored next to the program.
 
 ## Credits
 The changes in this fork (the floating Shortcuts button and its features, the update download, the card styling, diagnostics, the release and sync workflows, the rename, the icon and this README) were written with [Claude](https://claude.com) by Anthropic. Moonlight itself is the work of the Moonlight project and its contributors.

@@ -46,6 +46,17 @@ const int kRowHeight = 26;
 const int kMinColumnWidth = 200;
 const int kMaxColumnWidth = 440;
 const int kLabelHintGap = 18;
+const int kFooterHeight = 22;
+
+// "Vibelight 6.2.0 (80f7297)", the same version the Settings page shows
+std::string versionLine()
+{
+#ifdef BUILD_COMMIT
+    return std::string("Vibelight ") + VERSION_STR + " (" + BUILD_COMMIT + ")";
+#else
+    return std::string("Vibelight ") + VERSION_STR;
+#endif
+}
 const int kDefaultTopMargin = 6;
 const int kDragThresholdPx = 4;
 
@@ -997,7 +1008,7 @@ void ShortcutMenu::layoutItems()
     }
 
     m_ExpandedWidth = totalWidth;
-    m_ExpandedHeight = tallest + kPadding;
+    m_ExpandedHeight = tallest + kPadding + kFooterHeight;
 }
 
 void ShortcutMenu::showWithoutActivation()
@@ -1598,6 +1609,10 @@ void ShortcutMenu::render()
                      (c < (int)m_ColumnX.size() ? m_ColumnX[c] : kPadding) + 4,
                      kHeaderHeight + kPadding + (kTitleHeight - TTF_FontHeight(m_SmallFont)) / 2);
         }
+
+        // Version and build, bottom right
+        drawText(s, m_SmallFont, versionLine().c_str(), kHintColor,
+                 s->w - 10, s->h - kFooterHeight + (kFooterHeight - TTF_FontHeight(m_SmallFont)) / 2 - 2, true);
 
         for (size_t i = 0; i < m_Items.size(); i++) {
             const Item& item = m_Items[i];

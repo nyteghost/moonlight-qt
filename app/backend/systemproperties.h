@@ -51,6 +51,10 @@ public:
     // this version runs; markWhatsNewSeen() remembers that it was shown.
     Q_INVOKABLE QString whatsNewText();
     Q_INVOKABLE QString differencesText();
+
+    // Address of a new GitHub issue on this fork, pre-filled with the version and system details.
+    // The diagnostics file (which can hold PC names and IP addresses) is never put in the URL.
+    Q_INVOKABLE QString problemReportUrl();
     Q_INVOKABLE bool shouldShowWhatsNew();
     Q_INVOKABLE void markWhatsNewSeen();
 

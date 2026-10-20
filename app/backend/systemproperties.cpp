@@ -12,6 +12,7 @@
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QUrl>
+#include <QUrlQuery>
 
 #include "path.h"
 
@@ -360,6 +361,28 @@ QString SystemProperties::whatsNewText()
         return QString();
     }
     return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+QString SystemProperties::problemReportUrl()
+{
+    QString body;
+    body += "**What happened?**\n\n\n";
+    body += "**What did you expect to happen?**\n\n\n";
+    body += "**Steps to reproduce**\n\n\n";
+    body += "---\n";
+    body += "Please drag the diagnostics file Vibelight just saved into this issue.\n\n";
+    body += "- Version: " + buildString + "\n";
+    body += "- OS: " + QSysInfo::prettyProductName() + "\n";
+    body += "- CPU architecture: " + QSysInfo::currentCpuArchitecture() + "\n";
+    body += QString("- Hardware acceleration: %1\n").arg(hasHardwareAcceleration ? "yes" : "no");
+    body += QString("- Portable mode: %1\n").arg(QFile::exists(QDir::currentPath() + "/portable.dat") ? "yes" : "no");
+
+    QUrl url("https://github.com/nyteghost/moonlight-qt/issues/new");
+    QUrlQuery query;
+    query.addQueryItem("title", "Problem: ");
+    query.addQueryItem("body", body);
+    url.setQuery(query);
+    return url.toString(QUrl::FullyEncoded);
 }
 
 QString SystemProperties::differencesText()

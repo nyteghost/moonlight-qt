@@ -1995,6 +1995,18 @@ Flickable {
                         text: qsTr("Differences from Moonlight")
                         onClicked: window.showDifferences()
                     }
+
+                    Button {
+                        text: qsTr("Report a problem")
+                        onClicked: {
+                            // Save the diagnostics file first so it can be dragged into the issue
+                            var savedPath = SystemProperties.saveDiagnostics()
+                            diagnosticsStatus.text = savedPath !== ""
+                                    ? qsTr("Saved %1. Drag it into the issue that just opened in your browser.").arg(savedPath)
+                                    : qsTr("Couldn't save the diagnostics file, but the issue page was opened.")
+                            Qt.openUrlExternally(SystemProperties.problemReportUrl())
+                        }
+                    }
                 }
 
                 Label {

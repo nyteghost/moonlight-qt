@@ -990,6 +990,23 @@ Flickable {
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Mutes Vibelight's audio when you Alt+Tab out of the stream or click on a different window.")
                 }
+
+                CheckBox {
+                    id: ctrlAltReleaseMouseCheck
+                    width: parent.width
+                    text: qsTr("Hold Ctrl+Alt to release the mouse")
+                    font.pointSize: 12
+                    visible: SystemProperties.hasDesktopEnvironment
+                    checked: StreamingPreferences.ctrlAltReleaseMouse
+                    onCheckedChanged: {
+                        StreamingPreferences.ctrlAltReleaseMouse = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("While you hold the left Alt and Ctrl keys, the mouse is freed so you can move it outside the stream window. Release the keys to capture it again. Keys are still sent to the remote PC as usual.")
+                }
             }
         }
 

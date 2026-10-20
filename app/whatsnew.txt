@@ -13,7 +13,14 @@ Connection
 
 Updates and support
 - Check for updates and Download update buttons in Settings, with a bitrate suggestion.
+- Install and restart: portable Windows installs can update themselves after the download (the old version is kept in .update-backup).
 - Save a diagnostics file and open the log folder from Settings -> Support.
+- Report a problem button opens a prefilled GitHub issue.
+- Release notes on GitHub now include this list.
+
+Settings
+- Search box at the top of Settings filters the sections.
+- Choose the letter used by the shortcuts menu hotkey (Ctrl+Alt+Shift+letter).
 
 Look and feel
 - New Vibepollo-style colors and cards, and a new icon.

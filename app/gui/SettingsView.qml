@@ -2017,6 +2017,17 @@ Flickable {
                             AutoUpdateChecker.downloadUpdate()
                         }
                     }
+
+                    Button {
+                        id: installUpdateButton
+                        text: qsTr("Install and restart")
+                        visible: false
+                        onClicked: {
+                            if (!AutoUpdateChecker.installUpdateAndRestart()) {
+                                updateStatus.text = qsTr("Vibelight could not start the updater. Nothing was changed.")
+                            }
+                        }
+                    }
                 }
 
                 Label {
@@ -2030,6 +2041,7 @@ Flickable {
                         checkUpdatesButton.checking = false
                         text = message
                         downloadUpdateButton.visible = updateAvailable && AutoUpdateChecker.hasDownload()
+                        installUpdateButton.visible = false
                     }
 
                     function downloadProgress(received, total) {
@@ -2040,6 +2052,7 @@ Flickable {
 
                     function downloadFinished(path) {
                         text = qsTr("Downloaded to %1").arg(path)
+                        installUpdateButton.visible = AutoUpdateChecker.canInstallUpdate()
                     }
 
                     function downloadFailed(message) {

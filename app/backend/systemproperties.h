@@ -47,6 +47,22 @@ public:
     Q_INVOKABLE QString saveDiagnostics();
     Q_INVOKABLE void openLogFolder();
 
+    // "What's new" notes bundled with the app. shouldShowWhatsNew() is true the first time
+    // this version runs; markWhatsNewSeen() remembers that it was shown.
+    Q_INVOKABLE QString whatsNewText();
+    Q_INVOKABLE QString differencesText();
+
+    // Address of a new GitHub issue on this fork, pre-filled with the version and system details.
+    // The diagnostics file (which can hold PC names and IP addresses) is never put in the URL.
+    Q_INVOKABLE QString problemReportUrl();
+
+    // The last key of the shortcuts menu hotkey (Ctrl+Alt+Shift+<letter>), saved between runs
+    Q_INVOKABLE QStringList shortcutMenuHotkeyChoices();
+    Q_INVOKABLE QString shortcutMenuHotkey();
+    Q_INVOKABLE void setShortcutMenuHotkey(const QString& letter);
+    Q_INVOKABLE bool shouldShowWhatsNew();
+    Q_INVOKABLE void markWhatsNewSeen();
+
     Q_INVOKABLE void startAsyncLoad();
     Q_INVOKABLE void waitForAsyncLoad();
     Q_INVOKABLE void refreshDisplays();

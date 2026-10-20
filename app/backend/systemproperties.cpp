@@ -12,11 +12,13 @@
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QUrl>
+#include <QUrlQuery>
 
 #include "path.h"
 
 #include "streaming/session.h"
 #include "streaming/streamutils.h"
+#include "streaming/vibelight_logic.h"
 
 #ifdef Q_OS_WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -351,6 +353,84 @@ QString SystemProperties::saveDiagnostics()
 void SystemProperties::openLogFolder()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(Path::getLogDir()));
+}
+
+QString SystemProperties::whatsNewText()
+{
+    QFile file(":/whatsnew.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+QStringList SystemProperties::shortcutMenuHotkeyChoices()
+{
+    QStringList choices;
+    for (const char* p = vibelight::menuHotkeyChoices(); *p != '\0'; p++) {
+        choices << QString(QChar(*p));
+    }
+    return choices;
+}
+
+QString SystemProperties::shortcutMenuHotkey()
+{
+    QSettings settings;
+    return QString(QChar(vibelight::sanitizeMenuHotkey(
+                             settings.value("vibelight/menuHotkey", "H").toString().toStdString())));
+}
+
+void SystemProperties::setShortcutMenuHotkey(const QString& letter)
+{
+    QSettings settings;
+    settings.setValue("vibelight/menuHotkey",
+                      QString(QChar(vibelight::sanitizeMenuHotkey(letter.toStdString()))));
+}
+
+QString SystemProperties::problemReportUrl()
+{
+    QString body;
+    body += "**What happened?**\n\n\n";
+    body += "**What did you expect to happen?**\n\n\n";
+    body += "**Steps to reproduce**\n\n\n";
+    body += "---\n";
+    body += "Please drag the diagnostics file Vibelight just saved into this issue.\n\n";
+    body += "- Version: " + buildString + "\n";
+    body += "- OS: " + QSysInfo::prettyProductName() + "\n";
+    body += "- CPU architecture: " + QSysInfo::currentCpuArchitecture() + "\n";
+    body += QString("- Hardware acceleration: %1\n").arg(hasHardwareAcceleration ? "yes" : "no");
+    body += QString("- Portable mode: %1\n").arg(QFile::exists(QDir::currentPath() + "/portable.dat") ? "yes" : "no");
+
+    QUrl url("https://github.com/nyteghost/moonlight-qt/issues/new");
+    QUrlQuery query;
+    query.addQueryItem("title", "Problem: ");
+    query.addQueryItem("body", body);
+    url.setQuery(query);
+    return url.toString(QUrl::FullyEncoded);
+}
+
+QString SystemProperties::differencesText()
+{
+    QFile file(":/differences.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+bool SystemProperties::shouldShowWhatsNew()
+{
+    if (whatsNewText().isEmpty()) {
+        return false;
+    }
+    QSettings settings;
+    return settings.value("vibelight/lastSeenVersion").toString() != versionString;
+}
+
+void SystemProperties::markWhatsNewSeen()
+{
+    QSettings settings;
+    settings.setValue("vibelight/lastSeenVersion", versionString);
 }
 
 int SystemProperties::suggestedBitrateKbps()

@@ -5,6 +5,8 @@
 
 #include <QSettings>
 
+#include "streaming/vibelight_logic.h"
+
 #define VK_0 0x30
 #define VK_A 0x41
 
@@ -242,31 +244,6 @@ void SdlInputHandler::typeText(const char* utf8, size_t length)
         return;
     }
 
-    // US keyboard layout: Windows virtual-key code and whether Shift is needed
-    auto lookup = [](char c, unsigned short& vk, bool& shift) -> bool {
-        shift = false;
-        if (c >= 'a' && c <= 'z') { vk = 0x41 + (c - 'a'); return true; }
-        if (c >= 'A' && c <= 'Z') { vk = 0x41 + (c - 'A'); shift = true; return true; }
-        if (c >= '0' && c <= '9') { vk = 0x30 + (c - '0'); return true; }
-        static const char kShiftedDigits[] = ")!@#$%^&*(";
-        for (int i = 0; i < 10; i++) {
-            if (c == kShiftedDigits[i]) { vk = 0x30 + i; shift = true; return true; }
-        }
-        static const struct { char plain; char shifted; unsigned short vk; } kPunct[] = {
-            {'-', '_', 0xBD}, {'=', '+', 0xBB}, {'[', '{', 0xDB}, {']', '}', 0xDD},
-            {'\\', '|', 0xDC}, {';', ':', 0xBA}, {'\'', '"', 0xDE}, {',', '<', 0xBC},
-            {'.', '>', 0xBE}, {'/', '?', 0xBF}, {'`', '~', 0xC0},
-        };
-        for (const auto& p : kPunct) {
-            if (c == p.plain) { vk = p.vk; return true; }
-            if (c == p.shifted) { vk = p.vk; shift = true; return true; }
-        }
-        if (c == ' ') { vk = 0x20; return true; }
-        if (c == '\n' || c == '\r') { vk = 0x0D; return true; }
-        if (c == '\t') { vk = 0x09; return true; }
-        return false;
-    };
-
     const unsigned short VK_LSHIFT_CODE = 0xA0;
 
     for (size_t i = 0; i < length; ) {
@@ -280,7 +257,7 @@ void SdlInputHandler::typeText(const char* utf8, size_t length)
 
         unsigned short vk = 0;
         bool shift = false;
-        if (c < 0x80 && lookup((char)c, vk, shift)) {
+        if (c < 0x80 && vibelight::asciiToKey((char)c, vk, shift)) {
             if (shift) {
                 LiSendKeyboardEvent2((short)(VK_LSHIFT_CODE | 0x8000), KEY_ACTION_DOWN, MODIFIER_SHIFT, 0);
             }

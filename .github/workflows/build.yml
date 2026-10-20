@@ -3,13 +3,13 @@ name: Build
 permissions:
   contents: read
 
+# Every branch push gets a quick Windows x64 build (it also shows up as the check on a pull
+# request for that branch). The full set - Windows x64 + arm64, macOS, Linux AppImage and
+# Steam Link - runs when something lands on master, and on demand from the Actions tab.
 on:
   push:
     branches:
       - '**'
-  pull_request:
-    branches:
-      - master
   workflow_dispatch:
 
 concurrency:
@@ -29,17 +29,58 @@ jobs:
           CI_VERSION=`echo ${GITHUB_SHA} | cut -c1-6`
           echo "ci_version=${CI_VERSION}" >> "${GITHUB_OUTPUT}"
 
-  # Linux AppImage, Steam Link and macOS builds are slow and are only needed for
-  # pull requests; branch pushes build Windows only.
+  # Unit tests for the Qt-free logic (typing table, bitrate suggestion). Takes seconds.
+  logic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I app tests/logic_tests.cpp -o logic_tests
+          ./logic_tests
+
+  # Runs the one-click updater script against throwaway folders on Windows.
+  updater-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test update-vibelight.ps1
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tests/test-updater.ps1
+
+  # Checks every QML file for syntax errors, which the C++ build can't see. Problems here only
+  # show up when you open the page they belong to, so catch them before then.
+  qml-lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # advisory until its output has been checked on a few runs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.12.0
+          cache: true
+      - name: Show raw qmllint output for one file (diagnostics)
+        shell: bash
+        run: |
+          which qmllint || ls "$QT_ROOT_DIR/bin" "$Qt6_DIR" 2>&1 | head -30 || true
+          qmllint --version || true
+          qmllint --json - -I app/gui app/gui/StreamSegue.qml | head -c 4000 || true
+      - name: Lint QML
+        shell: bash
+        run: python3 scripts/qml_lint.py
+
+  # Linux AppImage, Steam Link, macOS and Windows arm64 are slow, so they only run for
+  # master and manual runs.
   build-appimage:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master'
     needs: setup
     uses: ./.github/workflows/build-appimage.yml
     with:
       ci_version: ${{ needs.setup.outputs.ci_version }}
 
   build-steamlink:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master'
     needs: setup
     uses: ./.github/workflows/build-steamlink.yml
     with:
@@ -50,4 +91,4 @@ jobs:
     uses: ./.github/workflows/build-win-mac.yml
     with:
       ci_version: ${{ needs.setup.outputs.ci_version }}
-      windows_only: ${{ github.event_name != 'pull_request' }}
+      windows_only: ${{ github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/master' }}

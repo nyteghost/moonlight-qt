@@ -20,7 +20,7 @@ Floating Shortcuts button (Ctrl+Alt+Shift+H)
 
 Streaming behavior
 - Auto-reconnect: if a stream drops, Vibelight tries up to 3 times to resume it.
-- Hold left Ctrl+Alt+M to release the mouse and move it outside the stream window.
+- Hold left Ctrl+Alt+Z to release the mouse and move it outside the stream window.
 - Suggested bitrate shown in Settings from the last connection check.
 
 Updates and support

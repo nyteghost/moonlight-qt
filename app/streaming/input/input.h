@@ -234,8 +234,8 @@ private:
     bool m_FakeMouseCaptureActive;
     bool m_CtrlAltReleaseEnabled;
     bool m_CtrlAltMouseReleased;
-    bool m_ReleaseKeyHeld = false;       // M held with Ctrl+Alt
-    bool m_SwallowReleaseKeyUp = false;  // the M key-up belongs to the mouse release, not the host
+    bool m_ReleaseKeyHeld = false;       // Z held with Ctrl+Alt
+    bool m_SwallowReleaseKeyUp = false;  // the Z key-up belongs to the mouse release, not the host
     bool m_KeyboardCaptureActive;
     QString m_OldIgnoreDevices;
     QString m_OldIgnoreDevicesExcept;

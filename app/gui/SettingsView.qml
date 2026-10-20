@@ -1616,7 +1616,7 @@ Flickable {
                 CheckBox {
                     id: ctrlAltReleaseMouseCheck
                     width: parent.width
-                    text: qsTr("Hold Ctrl+Alt+M to release the mouse")
+                    text: qsTr("Hold Ctrl+Alt+Z to release the mouse")
                     font.pointSize: 12
                     visible: SystemProperties.hasDesktopEnvironment
                     checked: StreamingPreferences.ctrlAltReleaseMouse
@@ -1627,7 +1627,7 @@ Flickable {
                     ToolTip.delay: 1000
                     ToolTip.timeout: 7000
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("While you hold the left Alt, Ctrl and M keys, the mouse is freed so you can move it outside the stream window or click the shortcuts button. Release the keys to capture it again.")
+                    ToolTip.text: qsTr("While you hold the left Alt, Ctrl and Z keys, the mouse is freed so you can move it outside the stream window or click the shortcuts button. Release the keys to capture it again.")
                 }
             }
         }

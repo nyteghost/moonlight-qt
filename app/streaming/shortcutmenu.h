@@ -54,6 +54,7 @@ private:
         PageTools,
         PageCustom,
         PageClipboard,
+        PageTyping,     // choose how pasted text is typed (reached from Vibelight controls)
         PageCount
     };
 
@@ -65,7 +66,7 @@ private:
         KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
         KindClipboard,  // type one of the recent local clipboard entries on the remote PC
         KindClearClips, // forget the clipboard history
-        KindToggleTyping, // switch between Unicode text and key presses for typing text
+        KindSetTyping,  // choose Unicode text (target 0) or key presses (target 1) for typing text
         KindScreenshot, // save the current stream picture as a PNG
         KindToggleGraph, // show/hide the small latency graph
         KindPage,       // opens another page of the menu (see Item::target)
@@ -97,6 +98,8 @@ private:
     bool addTopColumn(); // returns true if a Pinned & recent column was added
     void addCategoryRows(bool hasTopColumn);
     void goToPage(int page);
+    static int parentPage(int page);
+    bool currentTypeAsKeys() const;
     int itemsOnPage(int page) const;
     static std::string itemId(const Item& item);
     void togglePin(int index);

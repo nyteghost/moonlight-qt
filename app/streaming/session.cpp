@@ -33,6 +33,7 @@
 #include <openssl/rand.h>
 
 #include <QtEndian>
+#include <QSettings>
 #include <QCoreApplication>
 #include <QThreadPool>
 #include <QSvgRenderer>
@@ -1736,6 +1737,18 @@ void Session::flushWindowEvents()
     flushEvent.type = SDL_USEREVENT;
     flushEvent.user.code = SDL_CODE_FLUSH_WINDOW_EVENT_BARRIER;
     SDL_PushEvent(&flushEvent);
+}
+
+bool Session::typeAsKeyPresses() const
+{
+    QSettings settings;
+    const bool global = settings.value("vibelight/typeAsKeyPresses", false).toBool();
+    return settings.value("vibelight/typingMode/" + m_Computer->uuid, global).toBool();
+}
+
+void Session::setTypeAsKeyPresses(bool asKeys)
+{
+    QSettings().setValue("vibelight/typingMode/" + m_Computer->uuid, asKeys);
 }
 
 std::string Session::getStreamSummary() const

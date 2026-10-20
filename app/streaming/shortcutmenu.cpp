@@ -409,9 +409,9 @@ void ShortcutMenu::buildItems()
     client(PageVibelight, "Show/hide cursor",         "C", SdlInputHandler::KeyComboToggleCursorHide, false);
     client(PageVibelight, "Minimize",                 "D", SdlInputHandler::KeyComboToggleMinimize, false);
     client(PageVibelight, "Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
-    special(PageVibelight, "Typing mode",
-            QSettings().value("vibelight/typeAsKeyPresses", false).toBool() ? "key presses" : "unicode",
-            KindToggleTyping);
+    // Typing mode opens its own small page with the two choices
+    special(PageVibelight, "Typing mode", currentTypeAsKeys() ? "key presses" : "unicode", KindPage);
+    m_Items.back().target = PageTyping;
     client(PageVibelight, "Pointer region lock",      "L", SdlInputHandler::KeyComboTogglePointerRegionLock, false);
     client(PageVibelight, "System key capture",       "K", SdlInputHandler::KeyComboToggleKeyboardGrab, false);
 
@@ -423,6 +423,13 @@ void ShortcutMenu::buildItems()
 #endif
     client(PageTools, "Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
     client(PageTools, "Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
+
+    // Typing mode page: how pasted text reaches the remote PC (remembered per PC)
+    m_PageTitles[PageTyping].push_back("Typing mode (this PC)");
+    special(PageTyping, "Unicode text", "default, any character", KindSetTyping);
+    m_Items.back().target = 0;
+    special(PageTyping, "Key presses", "terminals, Linux hosts", KindSetTyping);
+    m_Items.back().target = 1;
 
     // Displays & windows: display and multi-monitor shortcuts sent to the remote PC
     // (0x50 = P, 0x25 = Left arrow, 0x27 = Right arrow, 0x42 = B)
@@ -783,6 +790,19 @@ void ShortcutMenu::addCategoryRows(bool hasTopColumn)
     }
 }
 
+int ShortcutMenu::parentPage(int page)
+{
+    return page == PageTyping ? PageVibelight : PageRoot;
+}
+
+bool ShortcutMenu::currentTypeAsKeys() const
+{
+    if (Session::get() != nullptr) {
+        return Session::get()->typeAsKeyPresses();
+    }
+    return QSettings().value("vibelight/typeAsKeyPresses", false).toBool();
+}
+
 void ShortcutMenu::goToPage(int page)
 {
     m_Page = page;
@@ -1063,7 +1083,7 @@ void ShortcutMenu::layoutItems()
                 continue;
             }
             int need = 6 + textWidth(m_Font, item.pinned ? "* " + item.label : item.label) + 6;
-            if (item.kind == KindPage || item.kind == KindBack) {
+            if (item.kind == KindPage || item.kind == KindBack || item.kind == KindSetTyping) {
                 need += kArrowSpace;
             }
             int hintWidth = textWidth(m_SmallFont, item.hint);
@@ -1373,14 +1393,6 @@ void ShortcutMenu::execute(const Item& itemRef)
         return;
     }
 
-    if (item.kind == KindToggleTyping) {
-        QSettings settings;
-        const bool asKeys = !settings.value("vibelight/typeAsKeyPresses", false).toBool();
-        settings.setValue("vibelight/typeAsKeyPresses", asKeys);
-        showTransient(asKeys ? "Typing as key presses" : "Typing as Unicode text", 2500);
-        return;
-    }
-
     switch (item.kind) {
     case KindClient:
         m_Input->performSpecialKeyCombo((SdlInputHandler::KeyCombo)item.clientCombo);
@@ -1445,7 +1457,23 @@ void ShortcutMenu::handleClick(int x, int y)
         return;
     }
     if (item.kind == KindBack) {
-        goToPage(PageRoot);
+        goToPage(parentPage(m_Page));
+        return;
+    }
+    if (item.kind == KindSetTyping) {
+        const bool asKeys = (item.target == 1);
+        if (Session::get() != nullptr) {
+            Session::get()->setTypeAsKeyPresses(asKeys);
+        }
+        else {
+            QSettings().setValue("vibelight/typeAsKeyPresses", asKeys);
+        }
+
+        // Rebuild so the Typing mode row shows the new choice, then return to its page
+        const int returnTo = parentPage(m_Page);
+        m_Page = returnTo;
+        rebuildItems();
+        goToPage(returnTo);
         return;
     }
     if (item.dangerous && m_ConfirmIndex != index) {
@@ -1514,7 +1542,7 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         if (event.type == SDL_KEYDOWN && m_Expanded) {
             if (m_Page != PageRoot) {
                 // Esc goes back one level first
-                goToPage(PageRoot);
+                goToPage(parentPage(m_Page));
             }
             else {
                 dismiss(true);
@@ -1777,11 +1805,22 @@ void ShortcutMenu::render()
             std::string labelText = item.pinned ? "* " + item.label : item.label;
             const char* label = confirming ? "Click again to confirm" : labelText.c_str();
 
+            const bool isRadio = (item.kind == KindSetTyping);
             const bool isBack = (item.kind == KindBack);
             const bool isPage = (item.kind == KindPage);
-            const int labelX = item.rect.x + 6 + (isBack ? kArrowSpace : 0);
+            const int labelX = item.rect.x + 6 + ((isBack || isRadio) ? kArrowSpace : 0);
             const int rightEdge = item.rect.x + item.rect.w - 6 - (isPage ? kArrowSpace : 0);
-            if (isBack) {
+            if (isRadio) {
+                // Radio button: filled accent dot with a white centre when selected, a ring otherwise
+                const bool selected = ((item.target == 1) == currentTypeAsKeys());
+                SDL_Rect outer = { item.rect.x + 9, item.rect.y + item.rect.h / 2 - 5, 10, 10 };
+                fillRoundRect(s, outer, 5, selected ? SDL_MapRGB(s->format, 0x63, 0x66, 0xF1)
+                                                    : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
+                SDL_Rect inner2 = { outer.x + (selected ? 3 : 2), outer.y + (selected ? 3 : 2),
+                                    selected ? 4 : 6, selected ? 4 : 6 };
+                fillRoundRect(s, inner2, selected ? 2 : 3, selected ? SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF) : background);
+            }
+            else if (isBack) {
                 drawArrow(s, item.rect.x + 14, item.rect.y + item.rect.h / 2, false, SDL_MapRGB(s->format, kTitleColor.r, kTitleColor.g, kTitleColor.b));
             }
             else if (isPage) {

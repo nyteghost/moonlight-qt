@@ -138,6 +138,11 @@ public:
 
     // "PC name  |  1920x1080@60  |  HEVC 10-bit", shown in the shortcut menu
     std::string getStreamSummary() const;
+
+    // How "paste as typing" sends text to this PC: Unicode text (default) or key presses.
+    // Remembered per PC; PCs that were never set use the older global setting.
+    bool typeAsKeyPresses() const;
+    void setTypeAsKeyPresses(bool asKeys);
     int getConfiguredBitrateKbps() const
     {
         return m_StreamConfig.bitrate;

@@ -238,7 +238,8 @@ void SdlInputHandler::sendHostKeyCombo(const unsigned short* vkCodes, int count)
 
 void SdlInputHandler::typeText(const char* utf8, size_t length)
 {
-    const bool asKeys = QSettings().value("vibelight/typeAsKeyPresses", false).toBool();
+    const bool asKeys = Session::get() != nullptr ? Session::get()->typeAsKeyPresses()
+                                                  : QSettings().value("vibelight/typeAsKeyPresses", false).toBool();
     if (!asKeys) {
         LiSendUtf8TextEvent(utf8, (unsigned int)length);
         return;

@@ -1,5 +1,5 @@
 Shortcuts menu (Ctrl+Alt+Shift+H)
-- The shortcuts button is now a small round button that stays on top; drag it anywhere. A Settings option hides it until the hotkey.
+- The shortcuts button is now a small round button with the Vibelight icon that stays on top; drag it anywhere. Ctrl+Alt+Shift+H hides it and shows it again. A Settings option starts it hidden.
 - Tidier layout: a short top level with Pinned & recent and categories (Remote PC, Displays, Vibelight, Tools, My shortcuts, Clipboard). Click Back or press Esc to go up.
 - Pin, recents, and your own custom shortcuts (edit them from the menu).
 - Display and monitor shortcuts such as Win+P and Win+Shift+Left/Right.

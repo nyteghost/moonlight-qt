@@ -59,6 +59,8 @@ public:
     // The last key of the shortcuts menu hotkey (Ctrl+Alt+Shift+<letter>), saved between runs
     Q_INVOKABLE QStringList shortcutMenuHotkeyChoices();
     Q_INVOKABLE QString shortcutMenuHotkey();
+    Q_INVOKABLE bool shortcutMenuAutoHide();
+    Q_INVOKABLE void setShortcutMenuAutoHide(bool hide);
     Q_INVOKABLE void setShortcutMenuHotkey(const QString& letter);
     Q_INVOKABLE bool shouldShowWhatsNew();
     Q_INVOKABLE void markWhatsNewSeen();

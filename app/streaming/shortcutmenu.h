@@ -124,6 +124,10 @@ private:
     std::string elapsedString() const;
     void endTransient();
     void setExpanded(bool expanded);
+    int headerHeight() const;        // the part of the window that toggles the menu / drags it
+    void applyCollapsedSize();       // round button size, plus its shape
+    void applyShape();               // round button / pill / plain rectangle (Windows)
+    void savePosition() const;
     void close(bool refocusStream);
     void dismiss(bool refocusStream);
     void execute(const Item& item);
@@ -163,7 +167,8 @@ private:
 
     bool m_Expanded;
     bool m_Shown;
-    bool m_Revealed; // The button is only visible after Ctrl+Alt+Shift+H
+    bool m_Revealed; // Hidden until Ctrl+Alt+Shift+H only when "hide until hotkey" is on
+    bool m_AutoHide = false; // Settings: keep the button hidden until the hotkey is pressed
     int m_HoverIndex;
     bool m_HeaderHover;
     int m_ConfirmIndex;

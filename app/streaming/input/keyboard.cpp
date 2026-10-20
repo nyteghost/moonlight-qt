@@ -297,11 +297,30 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
         return;
     }
 
-    // Holding left Alt + Ctrl frees the mouse so it can leave the window. Keys are
-    // still forwarded to the host untouched. Left Alt only, since AltGr reports
-    // as Ctrl+RAlt on many layouts. Special combos below are unaffected.
+    // Holding left Alt + Ctrl + M (without Shift) frees the mouse so it can leave the window
+    // or reach the shortcuts button. The M key itself is not sent to the host. Left Alt only,
+    // since AltGr reports as Ctrl+RAlt on many layouts. Ctrl+Alt+Shift+M (mouse mode) is
+    // unaffected.
+    bool swallowReleaseKey = false;
     if (m_CtrlAltReleaseEnabled) {
-        bool ctrlAltHeld = (event->keysym.mod & KMOD_CTRL) && (event->keysym.mod & KMOD_LALT);
+        const bool ctrlAltOnly = (event->keysym.mod & KMOD_CTRL) && (event->keysym.mod & KMOD_LALT) &&
+                                 !(event->keysym.mod & KMOD_SHIFT);
+        if (event->keysym.sym == SDLK_m) {
+            if (event->state == SDL_PRESSED && ctrlAltOnly) {
+                m_ReleaseKeyHeld = true;
+                m_SwallowReleaseKeyUp = true;
+                swallowReleaseKey = true;
+            }
+            else if (event->state == SDL_RELEASED) {
+                m_ReleaseKeyHeld = false;
+                if (m_SwallowReleaseKeyUp) {
+                    m_SwallowReleaseKeyUp = false;
+                    swallowReleaseKey = true;
+                }
+            }
+        }
+
+        bool ctrlAltHeld = m_ReleaseKeyHeld && ctrlAltOnly;
         if (ctrlAltHeld && !m_CtrlAltMouseReleased && isCaptureActive()) {
             m_CtrlAltMouseReleased = true;
             setCaptureActive(false);
@@ -315,6 +334,10 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 setCaptureActive(true);
             }
         }
+    }
+
+    if (swallowReleaseKey) {
+        return;
     }
 
     // Check for our special key combos

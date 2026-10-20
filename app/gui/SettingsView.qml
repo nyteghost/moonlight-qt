@@ -1579,6 +1579,20 @@ Flickable {
                     }
                 }
 
+                CheckBox {
+                    id: menuAutoHideCheck
+                    width: parent.width
+                    text: qsTr("Hide the shortcuts button until I press the hotkey")
+                    font.pointSize: 12
+                    checked: SystemProperties.shortcutMenuAutoHide()
+                    onClicked: SystemProperties.setShortcutMenuAutoHide(checked)
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("By default a small round button stays on top of the stream (drag it anywhere, click it to open the menu). Turn this on to hide it until you press the shortcuts menu hotkey. Takes effect the next time you start a stream.")
+                }
+
                 Label {
                     width: parent.width
                     text: qsTr("Shortcuts menu hotkey: Ctrl+Alt+Shift+")
@@ -1602,7 +1616,7 @@ Flickable {
                 CheckBox {
                     id: ctrlAltReleaseMouseCheck
                     width: parent.width
-                    text: qsTr("Hold Ctrl+Alt to release the mouse")
+                    text: qsTr("Hold Ctrl+Alt+M to release the mouse")
                     font.pointSize: 12
                     visible: SystemProperties.hasDesktopEnvironment
                     checked: StreamingPreferences.ctrlAltReleaseMouse
@@ -1613,7 +1627,7 @@ Flickable {
                     ToolTip.delay: 1000
                     ToolTip.timeout: 7000
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("While you hold the left Alt and Ctrl keys, the mouse is freed so you can move it outside the stream window. Release the keys to capture it again. Keys are still sent to the remote PC as usual.")
+                    ToolTip.text: qsTr("While you hold the left Alt, Ctrl and M keys, the mouse is freed so you can move it outside the stream window or click the shortcuts button. Release the keys to capture it again.")
                 }
             }
         }

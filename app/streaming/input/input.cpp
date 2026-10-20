@@ -8,6 +8,9 @@
 #include <QtGlobal>
 #include <QDir>
 #include <QGuiApplication>
+#include <QSettings>
+
+#include "streaming/vibelight_logic.h"
 
 SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, int streamHeight)
     : m_MultiController(prefs.multiController),
@@ -137,9 +140,12 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].scanCode = SDL_SCANCODE_K;
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].enabled = WMUtils::isRunningDesktopEnvironment();
 
+    // The last key of the shortcuts menu hotkey can be changed in Settings (H by default)
+    const int menuLetterIndex = vibelight::sanitizeMenuHotkey(
+                QSettings().value("vibelight/menuHotkey", "H").toString().toStdString()) - 'A';
     m_SpecialKeyCombos[KeyComboToggleShortcutMenu].keyCombo = KeyComboToggleShortcutMenu;
-    m_SpecialKeyCombos[KeyComboToggleShortcutMenu].keyCode = SDLK_h;
-    m_SpecialKeyCombos[KeyComboToggleShortcutMenu].scanCode = SDL_SCANCODE_H;
+    m_SpecialKeyCombos[KeyComboToggleShortcutMenu].keyCode = (SDL_Keycode)(SDLK_a + menuLetterIndex);
+    m_SpecialKeyCombos[KeyComboToggleShortcutMenu].scanCode = (SDL_Scancode)(SDL_SCANCODE_A + menuLetterIndex);
     m_SpecialKeyCombos[KeyComboToggleShortcutMenu].enabled = true;
 
     m_OldIgnoreDevices = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES);

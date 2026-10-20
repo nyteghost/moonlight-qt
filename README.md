@@ -13,7 +13,7 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 ## What's different from upstream Moonlight
 
 ### Floating "Shortcuts" button
-While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
+While streaming, press **Ctrl+Alt+Shift+H** (you can change the H in **Settings → Input Settings → Shortcuts menu hotkey**; it applies from the next stream) to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
 
 **Hold Ctrl+Alt to release the mouse.** While you hold the left Ctrl and left Alt keys, the mouse is freed so you can move it outside the stream window. Let go and it is captured again (if the pointer is still over the window). Keys are still sent to the remote PC as usual, and Ctrl+Alt+Shift shortcuts work the same. Turn it off in **Settings → Input Settings** ("Hold Ctrl+Alt to release the mouse").
 

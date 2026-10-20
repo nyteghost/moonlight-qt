@@ -1579,6 +1579,26 @@ Flickable {
                     }
                 }
 
+                Label {
+                    width: parent.width
+                    text: qsTr("Shortcuts menu hotkey: Ctrl+Alt+Shift+")
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                ComboBox {
+                    id: menuHotkeyCombo
+                    width: 120
+                    model: SystemProperties.shortcutMenuHotkeyChoices()
+                    Component.onCompleted: currentIndex = Math.max(0, find(SystemProperties.shortcutMenuHotkey()))
+                    onActivated: SystemProperties.setShortcutMenuHotkey(currentText)
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("The last key of the combination that shows the shortcuts menu while streaming. Only letters that Vibelight doesn't already use are offered. Takes effect the next time you start a stream.")
+                }
+
                 CheckBox {
                     id: ctrlAltReleaseMouseCheck
                     width: parent.width

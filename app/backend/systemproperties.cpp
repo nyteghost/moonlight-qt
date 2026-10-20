@@ -18,6 +18,7 @@
 
 #include "streaming/session.h"
 #include "streaming/streamutils.h"
+#include "streaming/vibelight_logic.h"
 
 #ifdef Q_OS_WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -361,6 +362,29 @@ QString SystemProperties::whatsNewText()
         return QString();
     }
     return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+QStringList SystemProperties::shortcutMenuHotkeyChoices()
+{
+    QStringList choices;
+    for (const char* p = vibelight::menuHotkeyChoices(); *p != '\0'; p++) {
+        choices << QString(QChar(*p));
+    }
+    return choices;
+}
+
+QString SystemProperties::shortcutMenuHotkey()
+{
+    QSettings settings;
+    return QString(QChar(vibelight::sanitizeMenuHotkey(
+                             settings.value("vibelight/menuHotkey", "H").toString().toStdString())));
+}
+
+void SystemProperties::setShortcutMenuHotkey(const QString& letter)
+{
+    QSettings settings;
+    settings.setValue("vibelight/menuHotkey",
+                      QString(QChar(vibelight::sanitizeMenuHotkey(letter.toStdString()))));
 }
 
 QString SystemProperties::problemReportUrl()

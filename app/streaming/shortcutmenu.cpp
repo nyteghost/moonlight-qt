@@ -534,7 +534,7 @@ void ShortcutMenu::addCustomItems()
         if (starter.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             starter.write(
                 "{\n"
-                "  \"_help\": \"Add your own shortcuts below. Each needs a \\\"label\\\" and either \\\"keys\\\" (for example \\\"Ctrl+Alt+T\\\") or \\\"text\\\" (typed on the remote PC). Optional: \\\"confirm\\\": true asks for a second click. Save the file, then press Ctrl+Alt+Shift+H again to see your changes.\",\n"
+                "  \"_help\": \"Add your own shortcuts below. Each needs a \\\"label\\\" and either \\\"keys\\\" (for example \\\"Ctrl+Alt+T\\\") or \\\"text\\\" (typed on the remote PC). Optional: \\\"confirm\\\": true asks for a second click. Save the file, then press the menu hotkey (Ctrl+Alt+Shift+H unless you changed it in Settings) again to see your changes.\",\n"
                 "  \"shortcuts\": []\n"
                 "}\n");
         }
@@ -950,7 +950,9 @@ void ShortcutMenu::showHint()
         return;
     }
     settings.setValue("vibelight/hintShownCount", shown + 1);
-    showTransient("Press Ctrl+Alt+Shift+H for shortcuts", 5000);
+    const char letter = vibelight::sanitizeMenuHotkey(
+                QSettings().value("vibelight/menuHotkey", "H").toString().toStdString());
+    showTransient(std::string("Press Ctrl+Alt+Shift+") + letter + " for shortcuts", 5000);
 }
 
 void ShortcutMenu::layoutItems()

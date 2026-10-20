@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 namespace vibelight {
 
@@ -60,6 +61,30 @@ inline double suggestBitrateMbps(double currentMbps, double dropPercent, unsigne
     }
 
     return std::max(5.0, (double)(int)(suggested + 0.5));
+}
+
+// Letters that can be the last key of the shortcuts menu hotkey (Ctrl+Alt+Shift+<letter>). The
+// others are taken by Vibelight/Moonlight actions: Q Z X S M C D V L E K.
+inline const char* menuHotkeyChoices()
+{
+    return "ABFGHIJNOPRTUWY";
+}
+
+// Turns a saved setting into a valid hotkey letter, falling back to H.
+inline char sanitizeMenuHotkey(const std::string& saved)
+{
+    if (saved.size() == 1) {
+        char c = saved[0];
+        if (c >= 'a' && c <= 'z') {
+            c = (char)(c - 'a' + 'A');
+        }
+        for (const char* p = menuHotkeyChoices(); *p != '\0'; p++) {
+            if (*p == c) {
+                return c;
+            }
+        }
+    }
+    return 'H';
 }
 
 } // namespace vibelight

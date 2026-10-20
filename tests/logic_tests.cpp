@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 static int g_failures = 0;
 
@@ -132,10 +133,42 @@ static void testBitrate()
     CHECK(suggestBitrateMbps(35, 1.5, 10, 35) == 28);   // 28.0
 }
 
+static void testHotkey()
+{
+    using vibelight::sanitizeMenuHotkey;
+
+    CHECK(sanitizeMenuHotkey("H") == 'H');
+    CHECK(sanitizeMenuHotkey("h") == 'H');
+    CHECK(sanitizeMenuHotkey("t") == 'T');
+    CHECK(sanitizeMenuHotkey("Y") == 'Y');
+
+    // Anything invalid falls back to H
+    CHECK(sanitizeMenuHotkey("") == 'H');
+    CHECK(sanitizeMenuHotkey("HH") == 'H');
+    CHECK(sanitizeMenuHotkey("1") == 'H');
+    CHECK(sanitizeMenuHotkey("!") == 'H');
+
+    // Letters already used by other actions are refused
+    const char* taken = "QZXSMCDVLEK";
+    for (const char* p = taken; *p != '\0'; p++) {
+        CHECK(sanitizeMenuHotkey(std::string(1, *p)) == 'H');
+        CHECK(sanitizeMenuHotkey(std::string(1, (char)(*p - 'A' + 'a'))) == 'H');
+    }
+
+    // The offered letters and the taken letters never overlap, and together they are the alphabet
+    int offered = 0;
+    for (const char* p = vibelight::menuHotkeyChoices(); *p != '\0'; p++) {
+        offered++;
+        CHECK(std::string(taken).find(*p) == std::string::npos);
+    }
+    CHECK(offered + (int)std::string(taken).size() == 26);
+}
+
 int main()
 {
     testKeys();
     testBitrate();
+    testHotkey();
 
     if (g_failures == 0) {
         std::printf("All logic tests passed\n");

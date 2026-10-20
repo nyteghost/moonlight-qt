@@ -20,6 +20,8 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_PointerRegionLockActive(false),
       m_PointerRegionLockToggledByUser(false),
       m_FakeMouseCaptureActive(false),
+      m_CtrlAltReleaseEnabled(prefs.ctrlAltReleaseMouse),
+      m_CtrlAltMouseReleased(false),
       m_KeyboardCaptureActive(false),
       m_CaptureSystemKeysMode(prefs.captureSysKeysMode),
       m_MouseCursorCapturedVisibilityState(SDL_DISABLE),
@@ -277,6 +279,9 @@ void SdlInputHandler::setWindow(SDL_Window *window)
 
 void SdlInputHandler::notifyFocusLost()
 {
+    // Another window took over, so the hold-Ctrl+Alt release no longer applies
+    m_CtrlAltMouseReleased = false;
+
     // Release mouse cursor when another window is activated (e.g. by using ALT+TAB).
     // This lets user to interact with our window's title bar and with the buttons in it.
     // Doing this while the window is full-screen breaks the transition out of FS

@@ -1735,6 +1735,19 @@ void Session::flushWindowEvents()
     SDL_PushEvent(&flushEvent);
 }
 
+bool Session::getConnectionSnapshot(CONNECTION_SNAPSHOT& snapshot)
+{
+    bool ok = false;
+
+    SDL_LockMutex(m_DecoderLock);
+    if (m_VideoDecoder != nullptr) {
+        ok = m_VideoDecoder->getConnectionSnapshot(&snapshot);
+    }
+    SDL_UnlockMutex(m_DecoderLock);
+
+    return ok;
+}
+
 void Session::toggleShortcutMenu()
 {
     if (m_ShortcutMenu != nullptr) {
@@ -2278,13 +2291,21 @@ void Session::exec()
             // Now that the stream window has its renderer, create (or re-dock) the
             // floating shortcut button. It's created this late so it can't interfere
             // with any window re-creation done by the renderer.
+            if (m_ShortcutMenu == nullptr && !ShortcutMenu::isSupportedOnThisPlatform()) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                            "Shortcut menu is not available (video driver: %s)",
+                            SDL_GetCurrentVideoDriver() != nullptr ? SDL_GetCurrentVideoDriver() : "none");
+            }
             if (m_ShortcutMenu == nullptr && ShortcutMenu::isSupportedOnThisPlatform()) {
                 m_ShortcutMenu = new ShortcutMenu(m_Window, m_InputHandler);
                 if (!m_ShortcutMenu->isValid()) {
+                    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu failed to initialize");
                     delete m_ShortcutMenu;
                     m_ShortcutMenu = nullptr;
                 }
                 else {
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu created");
+
                     // Remind the user how to reach it (the first few streams only)
                     m_ShortcutMenu->showHint();
                 }

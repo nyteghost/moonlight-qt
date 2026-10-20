@@ -33,6 +33,14 @@ typedef struct _VIDEO_STATS {
     uint64_t measurementStartUs;               // microseconds
 } VIDEO_STATS, *PVIDEO_STATS;
 
+// A small, cheap-to-read summary of how the stream is doing, used by the connection check
+typedef struct _CONNECTION_SNAPSHOT {
+    uint32_t totalFrames;
+    uint32_t networkDroppedFrames;
+    double videoMbps;     // recent average video bitrate actually received
+    uint32_t rttMs;       // 0 if unknown
+} CONNECTION_SNAPSHOT, *PCONNECTION_SNAPSHOT;
+
 typedef struct _DECODER_PARAMETERS {
     SDL_Window* window;
     StreamingPreferences::VideoDecoderSelection vds;
@@ -77,4 +85,7 @@ public:
     virtual void renderFrameOnMainThread() = 0;
     virtual void setHdrMode(bool enabled) = 0;
     virtual bool notifyWindowChanged(PWINDOW_STATE_CHANGE_INFO info) = 0;
+
+    // Optional: decoders that track network statistics fill this in and return true
+    virtual bool getConnectionSnapshot(PCONNECTION_SNAPSHOT) { return false; }
 };

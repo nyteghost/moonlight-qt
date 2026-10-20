@@ -16,12 +16,15 @@
 
 #include <Limelight.h>
 
+#include "streaming/session.h"
+#include "streaming/video/decoder.h"
+
 #include <cstdlib>
 #include <cstring>
 
 namespace {
 
-const int kCollapsedWidth = 150;
+const int kCollapsedWidth = 190;
 const int kHeaderHeight = 28;
 const int kPadding = 8;
 const int kTitleHeight = 24;
@@ -94,6 +97,13 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
       m_TransientUntil(0),
       m_TransientOwnsReveal(false),
       m_SwallowEscUp(false),
+      m_ExpandedAt(0),
+      m_StartTicks(SDL_GetTicks()),
+      m_LastTimerSecond(-1),
+      m_CheckActive(false),
+      m_CheckEndsAt(0),
+      m_CheckStartFrames(0),
+      m_CheckStartDropped(0),
       m_HintOverridden(false),
       m_SavedHint(nullptr)
 {
@@ -325,6 +335,17 @@ void ShortcutMenu::buildItems()
     client("Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
     client("Pointer region lock",      "L", SdlInputHandler::KeyComboTogglePointerRegionLock, false);
     client("System key capture",       "K", SdlInputHandler::KeyComboToggleKeyboardGrab, false);
+    {
+        Item item;
+        item.label = "Check connection";
+        item.hint = "10 s, suggests bitrate";
+        item.kind = KindConnectionCheck;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 1;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    }
     client("Quit stream",              "Q", SdlInputHandler::KeyComboQuit, true);
     client("Quit stream + exit app",   "E", SdlInputHandler::KeyComboQuitAndExit, true);
 
@@ -643,9 +664,112 @@ void ShortcutMenu::endTransient()
 
 void ShortcutMenu::tick()
 {
+    if (m_CheckActive && (int)(SDL_GetTicks() - m_CheckEndsAt) >= 0) {
+        finishConnectionCheck();
+    }
+
     if (m_TransientUntil != 0 && (int)(SDL_GetTicks() - m_TransientUntil) >= 0) {
         endTransient();
     }
+
+    // Redraw once per second while the button is visible so the stream timer advances
+    if (m_Revealed && m_Shown) {
+        int second = (int)((SDL_GetTicks() - m_StartTicks) / 1000);
+        if (second != m_LastTimerSecond) {
+            m_LastTimerSecond = second;
+            render();
+        }
+    }
+}
+
+std::string ShortcutMenu::elapsedString() const
+{
+    unsigned int total = (SDL_GetTicks() - m_StartTicks) / 1000;
+    unsigned int hours = total / 3600;
+    unsigned int minutes = (total / 60) % 60;
+    unsigned int seconds = total % 60;
+
+    char buf[32];
+    if (hours > 0) {
+        SDL_snprintf(buf, sizeof(buf), "%u:%02u:%02u", hours, minutes, seconds);
+    }
+    else {
+        SDL_snprintf(buf, sizeof(buf), "%02u:%02u", minutes, seconds);
+    }
+    return buf;
+}
+
+void ShortcutMenu::startConnectionCheck()
+{
+    Session* session = Session::get();
+    CONNECTION_SNAPSHOT snapshot = {};
+    if (session == nullptr || !session->getConnectionSnapshot(snapshot)) {
+        showTransient("Connection check isn't available for this stream", 4000);
+        return;
+    }
+
+    m_CheckStartFrames = snapshot.totalFrames;
+    m_CheckStartDropped = snapshot.networkDroppedFrames;
+    m_CheckEndsAt = SDL_GetTicks() + 10000;
+    m_CheckActive = true;
+    showTransient("Checking connection for 10 s...", 12000);
+}
+
+void ShortcutMenu::finishConnectionCheck()
+{
+    m_CheckActive = false;
+
+    Session* session = Session::get();
+    CONNECTION_SNAPSHOT snapshot = {};
+    if (session == nullptr || !session->getConnectionSnapshot(snapshot)) {
+        showTransient("Connection check failed", 4000);
+        return;
+    }
+
+    unsigned int frames = snapshot.totalFrames - m_CheckStartFrames;
+    unsigned int dropped = snapshot.networkDroppedFrames - m_CheckStartDropped;
+    if (frames < 120) {
+        // The stream was paused, minimized or too idle for a meaningful result
+        showTransient("Not enough video to judge. Try again while something is moving", 6000);
+        return;
+    }
+
+    double dropPercent = 100.0 * dropped / frames;
+    double currentMbps = session->getConfiguredBitrateKbps() / 1000.0;
+    double suggestedMbps = currentMbps;
+
+    if (dropPercent >= 3.0) {
+        suggestedMbps = currentMbps * 0.6;
+    }
+    else if (dropPercent >= 1.0) {
+        suggestedMbps = currentMbps * 0.8;
+    }
+    else if (dropPercent < 0.3 && (snapshot.rttMs == 0 || snapshot.rttMs < 30) &&
+             snapshot.videoMbps >= currentMbps * 0.8) {
+        // Clean, and the stream is actually using what it was given: there may be room to grow
+        suggestedMbps = qMin(currentMbps * 1.25, 150.0);
+    }
+    suggestedMbps = qMax(5.0, (double)(int)(suggestedMbps + 0.5));
+
+    char buf[160];
+    if (dropPercent >= 1.0) {
+        SDL_snprintf(buf, sizeof(buf), "Dropping %.1f%% of frames. Try %d Mbps (now %d)",
+                     dropPercent, (int)suggestedMbps, (int)(currentMbps + 0.5));
+    }
+    else if (suggestedMbps > currentMbps + 0.5) {
+        SDL_snprintf(buf, sizeof(buf), "Connection is clean (%.1f%% dropped). Could try %d Mbps (now %d)",
+                     dropPercent, (int)suggestedMbps, (int)(currentMbps + 0.5));
+    }
+    else {
+        SDL_snprintf(buf, sizeof(buf), "Connection OK (%.1f%% dropped). %d Mbps is a good fit",
+                     dropPercent, (int)(currentMbps + 0.5));
+    }
+
+    // Remember the suggestion so the Settings page can offer it
+    QSettings settings;
+    settings.setValue("vibelight/suggestedBitrateKbps", (int)suggestedMbps * 1000);
+
+    showTransient(buf, 10000);
 }
 
 void ShortcutMenu::showHint()
@@ -730,6 +854,7 @@ void ShortcutMenu::updatePosition()
 
     if (!m_Revealed) {
         if (m_Shown) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: hiding window");
             SDL_HideWindow(m_Window);
             m_Shown = false;
         }
@@ -739,6 +864,7 @@ void ShortcutMenu::updatePosition()
     Uint32 parentFlags = SDL_GetWindowFlags(m_Parent);
     if (parentFlags & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) {
         if (m_Shown) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: hiding window because the stream window is minimized or hidden");
             SDL_HideWindow(m_Window);
             m_Shown = false;
         }
@@ -772,6 +898,7 @@ void ShortcutMenu::updatePosition()
     }
 
     if (!m_Shown) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: showing window at %d,%d (%dx%d)", x, y, w, h);
         showWithoutActivation();
         m_Shown = true;
 
@@ -796,6 +923,9 @@ void ShortcutMenu::setExpanded(bool expanded)
     }
 
     m_Expanded = expanded;
+    if (expanded) {
+        m_ExpandedAt = SDL_GetTicks();
+    }
     m_HoverIndex = -1;
     m_ConfirmIndex = -1;
 
@@ -853,6 +983,10 @@ void ShortcutMenu::toggleFromHotkey()
         return;
     }
 
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                "Shortcut menu: toggle requested (revealed=%d, shown=%d, expanded=%d, transient=%d)",
+                (int)m_Revealed, (int)m_Shown, (int)m_Expanded, (int)(m_TransientUntil != 0));
+
     if (m_Revealed && m_TransientUntil == 0) {
         // Pressing the hotkey again hides the button
         dismiss(true);
@@ -899,6 +1033,11 @@ void ShortcutMenu::execute(const Item& itemRef)
     // Hide the button and give focus (and mouse capture, if we took it) back before
     // acting so that the action sees the same state the user had.
     dismiss(true);
+
+    if (item.kind == KindConnectionCheck) {
+        startConnectionCheck();
+        return;
+    }
 
     switch (item.kind) {
     case KindClient:
@@ -1061,8 +1200,16 @@ bool ShortcutMenu::handleEvent(const SDL_Event& event)
         case SDL_WINDOWEVENT_FOCUS_LOST:
             // Clicking somewhere else closes the menu and hides the button again
             if (m_Expanded && !m_MouseDown) {
-                m_RecaptureOnClose = false;
-                dismiss(false);
+                // Window focus can briefly bounce between the stream and this window while the
+                // menu is opening, so ignore focus changes right after it appears.
+                if (SDL_GetTicks() - m_ExpandedAt < 500) {
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: ignoring early focus loss");
+                }
+                else {
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Shortcut menu: closing after focus loss");
+                    m_RecaptureOnClose = false;
+                    dismiss(false);
+                }
             }
             break;
         }
@@ -1192,6 +1339,14 @@ void ShortcutMenu::render()
              (kHeaderHeight - TTF_FontHeight(m_Font)) / 2);
     if (!showMessage) {
         drawChevron(s, s->w - 16, kHeaderHeight / 2, m_Expanded, chevronColor);
+
+        // Time since the stream started, just right of the label
+        int labelWidth = 0, labelHeight = 0;
+        if (TTF_SizeUTF8(m_Font, "Shortcuts", &labelWidth, &labelHeight) != 0) {
+            labelWidth = 85;
+        }
+        drawText(s, m_SmallFont, elapsedString().c_str(), kHeaderTextColor, 12 + labelWidth + 10,
+                 (kHeaderHeight - TTF_FontHeight(m_SmallFont)) / 2);
     }
     if (m_Expanded) {
         drawText(s, m_SmallFont, "right-click to pin  |  Esc to close", kHeaderTextColor,

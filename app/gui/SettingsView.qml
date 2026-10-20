@@ -7,6 +7,7 @@ import StreamingPreferences 1.0
 import ComputerManager 1.0
 import SdlGamepadKeyNavigation 1.0
 import SystemProperties 1.0
+import AutoUpdateChecker 1.0
 
 Flickable {
     id: settingsPage
@@ -726,6 +727,30 @@ Flickable {
                     }
                 }
 
+                Row {
+                    // Set by the "Check connection" button in the in-stream shortcuts menu
+                    property int suggestedKbps: SystemProperties.suggestedBitrateKbps()
+
+                    width: parent.width
+                    spacing: 10
+                    visible: suggestedKbps > 0 && suggestedKbps !== StreamingPreferences.bitrateKbps
+
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: qsTr("Your last connection check suggested %1 Mbps.").arg(parent.suggestedKbps / 1000.0)
+                        font.pointSize: 10
+                        opacity: 0.8
+                    }
+
+                    Button {
+                        text: qsTr("Use %1 Mbps").arg(parent.suggestedKbps / 1000.0)
+                        onClicked: {
+                            StreamingPreferences.autoAdjustBitrate = false
+                            slider.value = Math.min(parent.suggestedKbps, slider.to)
+                        }
+                    }
+                }
+
                 Label {
                     width: parent.width
                     id: windowModeTitle
@@ -964,6 +989,23 @@ Flickable {
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Mutes Vibelight's audio when you Alt+Tab out of the stream or click on a different window.")
+                }
+
+                CheckBox {
+                    id: ctrlAltReleaseMouseCheck
+                    width: parent.width
+                    text: qsTr("Hold Ctrl+Alt to release the mouse")
+                    font.pointSize: 12
+                    visible: SystemProperties.hasDesktopEnvironment
+                    checked: StreamingPreferences.ctrlAltReleaseMouse
+                    onCheckedChanged: {
+                        StreamingPreferences.ctrlAltReleaseMouse = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 7000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("While you hold the left Alt and Ctrl keys, the mouse is freed so you can move it outside the stream window. Release the keys to capture it again. Keys are still sent to the remote PC as usual.")
                 }
             }
         }
@@ -1837,6 +1879,76 @@ Flickable {
                     font.pointSize: 10
                     wrapMode: Text.Wrap
                     opacity: 0.8
+                }
+
+                Row {
+                    spacing: 10
+
+                    Button {
+                        id: checkUpdatesButton
+                        text: checking ? qsTr("Checking...") : qsTr("Check for updates")
+                        property bool checking: false
+                        enabled: !checking
+                        onClicked: {
+                            checking = true
+                            updateStatus.text = ""
+                            AutoUpdateChecker.checkForUpdates()
+                        }
+                    }
+
+                    Button {
+                        id: downloadUpdateButton
+                        text: qsTr("Download update")
+                        visible: false
+                        onClicked: {
+                            visible = false
+                            updateStatus.text = qsTr("Downloading...")
+                            AutoUpdateChecker.downloadUpdate()
+                        }
+                    }
+                }
+
+                Label {
+                    id: updateStatus
+                    width: parent.width
+                    visible: text !== ""
+                    font.pointSize: 10
+                    wrapMode: Text.Wrap
+
+                    function checkFinished(updateAvailable, message) {
+                        checkUpdatesButton.checking = false
+                        text = message
+                        downloadUpdateButton.visible = updateAvailable && AutoUpdateChecker.hasDownload()
+                    }
+
+                    function downloadProgress(received, total) {
+                        if (total > 0 && text.indexOf(qsTr("Downloading")) === 0) {
+                            text = qsTr("Downloading... %1%").arg(Math.floor(received * 100 / total))
+                        }
+                    }
+
+                    function downloadFinished(path) {
+                        text = qsTr("Downloaded to %1").arg(path)
+                    }
+
+                    function downloadFailed(message) {
+                        text = message
+                    }
+
+                    // Plain connect()/disconnect() keeps this working on every supported Qt version
+                    Component.onCompleted: {
+                        AutoUpdateChecker.onCheckFinished.connect(checkFinished)
+                        AutoUpdateChecker.downloadProgress.connect(downloadProgress)
+                        AutoUpdateChecker.downloadFinished.connect(downloadFinished)
+                        AutoUpdateChecker.downloadFailed.connect(downloadFailed)
+                    }
+
+                    Component.onDestruction: {
+                        AutoUpdateChecker.onCheckFinished.disconnect(checkFinished)
+                        AutoUpdateChecker.downloadProgress.disconnect(downloadProgress)
+                        AutoUpdateChecker.downloadFinished.disconnect(downloadFinished)
+                        AutoUpdateChecker.downloadFailed.disconnect(downloadFailed)
+                    }
                 }
 
                 Row {

@@ -42,6 +42,8 @@ public:
 
     // Writes a text file with version/system info and the end of the newest log to the
     // Downloads folder, opens that folder, and returns the file's path ("" on failure).
+    // Bitrate (kbps) suggested by the last in-stream connection check, or 0 if none
+    Q_INVOKABLE int suggestedBitrateKbps();
     Q_INVOKABLE QString saveDiagnostics();
     Q_INVOKABLE void openLogFolder();
 

@@ -754,6 +754,22 @@ bool FFmpegVideoDecoder::completeInitialization(const AVCodec* decoder, enum AVP
     return true;
 }
 
+bool FFmpegVideoDecoder::getConnectionSnapshot(PCONNECTION_SNAPSHOT snapshot)
+{
+    // The decoder thread folds each ~1 second stats window into the global stats, so a
+    // read from another thread can be about a second stale but is never meaningfully wrong.
+    snapshot->totalFrames = m_GlobalVideoStats.totalFrames;
+    snapshot->networkDroppedFrames = m_GlobalVideoStats.networkDroppedFrames;
+    snapshot->videoMbps = m_BwTracker.GetAverageMbps();
+
+    uint32_t rtt = 0, rttVariance = 0;
+    if (!LiGetEstimatedRttInfo(&rtt, &rttVariance)) {
+        rtt = 0;
+    }
+    snapshot->rttMs = rtt;
+    return true;
+}
+
 void FFmpegVideoDecoder::addVideoStats(VIDEO_STATS& src, VIDEO_STATS& dst)
 {
     dst.receivedFrames += src.receivedFrames;

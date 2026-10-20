@@ -42,7 +42,7 @@ public:
 
     // Call regularly from the event loop; hides transient messages when they expire.
     void tick();
-    bool needsTick() const { return m_TransientUntil != 0; }
+    bool needsTick() const { return m_TransientUntil != 0 || m_CheckActive || m_Revealed; }
 
 private:
     enum Kind {
@@ -50,6 +50,7 @@ private:
         KindHostText,   // type a string on the remote PC
         KindClient,     // one of Vibelight's own Ctrl+Alt+Shift+key actions
         KindOpenConfig, // open the custom shortcuts file in the default editor
+        KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
         KindInfo        // non-clickable message (for example a config error)
     };
 
@@ -77,6 +78,9 @@ private:
     void togglePin(int index);
     void recordRecent(const Item& item);
     void showTransient(const std::string& message, unsigned int durationMs);
+    void startConnectionCheck();
+    void finishConnectionCheck();
+    std::string elapsedString() const;
     void endTransient();
     void setExpanded(bool expanded);
     void close(bool refocusStream);
@@ -137,6 +141,17 @@ private:
     std::string m_TransientMessage;
     bool m_TransientOwnsReveal;
     bool m_SwallowEscUp;
+    unsigned int m_ExpandedAt; // SDL tick when the menu last opened
+
+    // Stream timer shown next to the button label
+    unsigned int m_StartTicks;
+    int m_LastTimerSecond;
+
+    // Connection check state
+    bool m_CheckActive;
+    unsigned int m_CheckEndsAt;
+    unsigned int m_CheckStartFrames;
+    unsigned int m_CheckStartDropped;
     std::string m_ConfigProblem;
 
     bool m_HintOverridden;

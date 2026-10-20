@@ -4,24 +4,36 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 
 > **This is an unofficial fork.** It is not affiliated with or endorsed by the Moonlight project. Please don't report problems with this fork to the upstream project. Upstream is licensed under GPLv3, and so is this fork (see [LICENSE](LICENSE)).
 
+## Quick start
+1. Download the latest build (see [Downloads](#downloads)) and unzip it. Add an empty file named `portable.dat` next to `Vibelight.exe` if you want settings kept in that folder.
+2. Pair with your host the same way as in Moonlight and start a stream.
+3. While streaming, press **Ctrl+Alt+Shift+H** to open the shortcuts menu. Press Esc to close it.
+4. If something goes wrong, open **Settings → Support → Save diagnostics file** and send the file along with a description of what happened.
+
 ## What's different from upstream Moonlight
 
 ### Floating "Shortcuts" button
-While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shortcuts** button over the stream window. It is hidden the rest of the time. Drag it anywhere. A click opens a dropdown of shortcuts you can click instead of pressing key combinations:
+While streaming, press **Ctrl+Alt+Shift+H** to show a small always-on-top **Shortcuts** button over the stream window and open its menu. Press the hotkey again, press Esc, click outside the menu, or pick a shortcut to hide it again. The button can be dragged anywhere. Opening it also frees the mouse, which is needed in relative mouse mode. Esc is never sent to the remote PC while the menu is open.
 
-- **Sent to the remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
-- **Vibelight's own actions** (the Ctrl+Alt+Shift+key hotkeys): release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E).
-- **Displays & windows** (sent to the remote PC): projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), and reset the graphics driver (Win+Ctrl+Shift+B). These move windows and change display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
-- **Hints and feedback:** at the start of a stream (the first three times) the button appears for a few seconds saying how to open it. After you choose a shortcut, the button briefly shows "Sent: <shortcut>". If your custom shortcuts file has a problem, you also get a short warning at the start of the stream.
-- **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned and your four most recently used shortcuts appear in a column on the left.
-- **Closing the menu:** press Esc (it won't be sent to the remote PC), click anywhere outside it, or press Ctrl+Alt+Shift+H again.
-- **Custom shortcuts** appear in extra columns (see below), up to 28 entries.
-- Quit actions need a second click to confirm.
-- Pressing **Ctrl+Alt+Shift+H** also frees the mouse first, which is needed in relative mouse mode. Press it again, press Esc, or pick an action to hide the button again.
+**Hold Ctrl+Alt to release the mouse.** While you hold the left Ctrl and left Alt keys, the mouse is freed so you can move it outside the stream window. Let go and it is captured again (if the pointer is still over the window). Keys are still sent to the remote PC as usual, and Ctrl+Alt+Shift shortcuts work the same. Turn it off in Settings under the input options ("Hold Ctrl+Alt to release the mouse").
 
-Notes and limitations:
+**What's in the menu**
+- **Send to remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
+- **Vibelight (Ctrl+Alt+Shift+key actions):** release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E). The two quit actions need a second click to confirm.
+- **Displays & windows (sent to the remote PC):** projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), reset the graphics driver (Win+Ctrl+Shift+B). These change windows and display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
+- **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned shortcuts and your four most recently used ones appear in a column on the left.
+- **Custom shortcuts:** your own buttons in extra columns, up to 28 entries (see below).
+
+**Feedback and tools**
+- **Hint:** the first three streams, the button appears for a few seconds saying how to open it. If your custom shortcuts file has a problem, you get a short warning at the start of every stream.
+- **"Sent" message:** after you choose a shortcut, the button briefly shows what was sent.
+- **Stream timer:** the button shows how long the stream has been running.
+- **Check connection:** watches the stream for 10 seconds, reports how many frames the network dropped, and suggests a bitrate: lower if frames are being lost, higher if the connection is clean and the stream is using all the bitrate it's given, otherwise "good fit". This measures your real stream rather than running a speed test, so run it while something on screen is moving. The suggestion is saved, and Settings shows "Your last connection check suggested N Mbps" with a **Use** button under the bitrate slider.
+
+**Notes and limitations**
 - The button is available on Windows, macOS and X11. It is not shown on Wayland, KMS/DRM or Steam Link. Set the environment variable `ML_DISABLE_SHORTCUT_MENU` to turn it off.
 - Windows may block injected Ctrl+Alt+Del depending on the host software.
+- With every column in use, the menu is up to about 1,800 pixels wide, which can be cut off on smaller screens.
 - This feature is new and has had limited testing, especially in exclusive fullscreen.
 
 ### Custom shortcuts
@@ -47,7 +59,7 @@ Click **Edit custom shortcuts...** in the dropdown (or edit the file yourself) t
 The icon is an original design for this fork (a crescent moon and a spark of light on a warm coral background). It is not the Moonlight logo or any other company's logo. A 1024px copy is in `branding/vibelight-icon.png`.
 
 ### Updates
-The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. It doesn't replace the running app: close Vibelight, unzip into a new folder, and keep your `portable.dat` file there to keep your settings. Platforms without a downloadable package just open the release page. It is only active on Windows, macOS, Steam Link and AppImage builds.
+The update indicator now checks the latest GitHub release of this repository (`nyteghost/moonlight-qt`) instead of upstream Moonlight. It only shows an update when a release exists whose tag (for example `v6.3.0`) is newer than the version in `app/version.txt`. On Windows (and macOS) clicking the indicator downloads the matching portable zip (or `.dmg`) from the release into your Downloads folder, checks it against GitHub's published SHA-256 checksum, and offers to open the folder. It doesn't replace the running app: close Vibelight, unzip into a new folder, and keep your `portable.dat` file there to keep your settings. Platforms without a downloadable package just open the release page. **Settings → Support → Check for updates** checks right now on any platform and says whether you're up to date, with a **Download update** button when a newer package is available. It is only active on Windows, macOS, Steam Link and AppImage builds.
 
 ### Look and feel
 The app's colors follow the Vibepollo web UI: a near-black navy background (`#060918`), dark navy toolbar and panels (`#0D1424`), and an indigo accent (`#6366F1`). PC and game tiles are rounded cards whose border turns indigo on hover or keyboard focus, the top bar is flat with a thin bottom border, and each section of the Settings page is a rounded dark card with an indigo heading. The overall screen layout (grids, toolbar buttons, settings columns) is still Moonlight's.
@@ -59,7 +71,10 @@ The visible app name is now **Vibelight** (window titles, messages, command-line
 - Translations of changed strings fall back to English.
 - Some in-app links and licenses still point to upstream.
 
-Files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), plus small edits in `app/streaming/session.{h,cpp}`, `app/streaming/input/{input.h,input.cpp,keyboard.cpp}`, `app/app.pro`, the Windows packaging scripts and WiX files, and user-visible strings.
+Main files changed in this fork: `app/streaming/shortcutmenu.{h,cpp}` (new), `app/gui/CardGroupBox.qml` (new), `.github/workflows/{release,sync-upstream}.yml` (new), and edits in `app/streaming/session.{h,cpp}`, `app/streaming/input/*`, `app/streaming/video/{decoder.h,ffmpeg.*}` (connection check), `app/backend/{autoupdatechecker,systemproperties}.*`, `app/gui/*.qml`, `app/app.pro`, the Windows packaging scripts and WiX files, and user-visible strings.
+
+### Sharper text
+Blurry text when remoted in usually comes from the stream resolution not matching your screen, too low a bitrate, or the codec. Things to try, roughly in order: stream at your monitor's native resolution (fullscreen, or at least 1:1); raise the bitrate (and use **Check connection** to see how much your network can take); use HEVC or AV1 instead of H.264; try **YUV 4:4:4** if your host supports it (Sunshine only; it needs a higher bitrate); and on the host, prefer Windows display scaling of 100% or 150% over odd values like 125%.
 
 ## Support and diagnostics
 Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest.
@@ -80,7 +95,7 @@ The in-app update indicator only shows something once a release like this exists
 Until you publish a release, build artifacts come from GitHub Actions: open the **Actions** tab of this repository, pick a run of the **Build** workflow, and download the `Vibelight-Windows-x64-*` artifact (or `-arm64-`). It is an unpacked folder. Create an empty file called `portable.dat` next to `Vibelight.exe` to run it in portable mode, where settings are stored next to the program.
 
 ## Credits
-The changes in this fork (the floating Shortcuts button, custom shortcuts, the release workflow, the rename, the icon and this README) were written with [Claude](https://claude.com) by Anthropic. Moonlight itself is the work of the Moonlight project and its contributors.
+The changes in this fork (the floating Shortcuts button and its features, the update download, the card styling, diagnostics, the release and sync workflows, the rename, the icon and this README) were written with [Claude](https://claude.com) by Anthropic. Moonlight itself is the work of the Moonlight project and its contributors.
 
 ## Upstream Moonlight
  - [Moonlight PC](https://moonlight-stream.org) and its [source](https://github.com/moonlight-stream/moonlight-qt)
@@ -97,7 +112,8 @@ The changes in this fork (the floating Shortcuts button, custom shortcuts, the r
  - Gamepad support with force feedback and motion controls for up to 16 players
  - Support for both pointer capture (for games) and direct mouse control (for remote desktop)
  - Support for passing system-wide keyboard shortcuts like Alt+Tab to the host
- - Clickable, draggable shortcuts button (added in this fork)
+ - Clickable, draggable shortcuts button with custom shortcuts, pins, a stream timer and a connection check (added in this fork)
+ - In-app update download, diagnostics export and build info (added in this fork)
 
 ## Building
 

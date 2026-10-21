@@ -1590,7 +1590,7 @@ Flickable {
                     ToolTip.delay: 1000
                     ToolTip.timeout: 7000
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("By default a small round button stays on top of the stream (drag it anywhere, click it to open the menu). Ctrl+Alt+Shift+H (or the hotkey you chose) hides and shows it. Turn this on to start with it hidden: the hotkey then shows it with the menu open. Takes effect the next time you start a stream.")
+                    ToolTip.text: qsTr("On (the default): the small round button is hidden until you press Ctrl+Alt+Shift+H (or the hotkey you chose), which shows it, opens the menu and frees the mouse; it hides again after use. Off: the button stays on top of the stream (drag it anywhere, click it to open the menu) and the hotkey hides and shows it. Takes effect the next time you start a stream.")
                 }
 
                 Label {

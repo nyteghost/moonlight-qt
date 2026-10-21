@@ -6,6 +6,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QXmlStreamReader>
 #include <QSslKey>
 #include <QImageReader>
@@ -457,8 +458,13 @@ void NvHTTP::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& error
 bool
 NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response, QString& error)
 {
+    const char* method = post ? "POST" : "GET";
     if (m_ServerCert.isNull() || m_BaseUrlHttps.port(0) == 0) {
         error = "this host isn't paired over HTTPS";
+        qWarning() << "[clipboard]" << method << "not sent:" << error
+                   << "serverCertKnown=" << !m_ServerCert.isNull()
+                   << "httpsPort=" << m_BaseUrlHttps.port(0)
+                   << "host=" << m_BaseUrlHttps.host();
         return false;
     }
 
@@ -478,6 +484,20 @@ NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response
     request.setAttribute(QNetworkRequest::ConnectionCacheExpiryTimeoutSecondsAttribute, 0);
 #endif
 
+    // Never log the clipboard text itself or the request id; only sizes and outcomes.
+    qInfo() << "[clipboard]" << method << url.scheme() + "://" + url.host() + ":" + QString::number(url.port())
+                                       + url.path() + "?type=text"
+            << "bodyBytes=" << body.size() << "qt=" << qVersion();
+    QElapsedTimer clipTimer;
+    clipTimer.start();
+
+    QStringList sslProblems;
+    auto sslLogConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this,
+                                    [&sslProblems](QNetworkReply*, const QList<QSslError>& errors) {
+        for (const QSslError& e : errors) {
+            sslProblems << e.errorString();
+        }
+    });
     auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
     QNetworkReply* reply = post ? m_Nam->post(request, body) : m_Nam->get(request);
 
@@ -496,14 +516,27 @@ NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response
     m_Nam->clearAccessCache();
 #endif
     disconnect(sslErrorsConnection);
+    disconnect(sslLogConnection);
 
     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const QNetworkReply::NetworkError networkError = reply->error();
+    const QString networkErrorText = reply->errorString();
+    const QString responseType = reply->header(QNetworkRequest::ContentTypeHeader).toString();
     response = reply->readAll();
     delete reply;
 
+    qInfo() << "[clipboard]" << method << "finished in" << clipTimer.elapsed() << "ms"
+            << "timedOut=" << timedOut << "httpStatus=" << status
+            << "networkError=" << (int)networkError << networkErrorText
+            << "responseBytes=" << response.size() << "contentType=" << responseType
+            << "sslProblemsIgnoredOrSeen=" << sslProblems;
+    if (status >= 400 && !response.isEmpty() && response.size() < 400) {
+        qWarning() << "[clipboard] host error body:" << QString::fromUtf8(response).simplified();
+    }
+
     if (timedOut) {
         error = "the host didn't answer";
+        qWarning() << "[clipboard] failed:" << error << "(4 s timeout; check the host is reachable on its HTTPS port)";
         return false;
     }
     if (status == 401 || status == 403) {

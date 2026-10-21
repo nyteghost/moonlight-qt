@@ -389,7 +389,7 @@ void SystemProperties::setShortcutMenuHotkey(const QString& letter)
 
 bool SystemProperties::shortcutMenuAutoHide()
 {
-    return QSettings().value("vibelight/menuAutoHide", false).toBool();
+    return QSettings().value("vibelight/menuAutoHide", true).toBool();
 }
 
 void SystemProperties::setShortcutMenuAutoHide(bool hide)

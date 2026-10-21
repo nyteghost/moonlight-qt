@@ -198,10 +198,10 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
     }
     m_Window = window;
 
-    // By default the round button is always on top of the stream. The Settings page can
-    // switch to the older behavior of staying hidden until the hotkey is pressed.
+    // By default the round button stays hidden until the hotkey is pressed. The Settings page
+    // can switch to keeping it always on top of the stream.
     QSettings settings;
-    m_AutoHide = settings.value("vibelight/menuAutoHide", false).toBool();
+    m_AutoHide = settings.value("vibelight/menuAutoHide", true).toBool();
     m_Revealed = !m_AutoHide;
 
     // Remember where the button was dragged to (relative to the stream window)

@@ -29,6 +29,7 @@ Updates and support
 - Check for updates and Download update buttons in Settings -> Support.
 - Settings -> Support shows the exact version and build, can save a diagnostics file, open the log folder, show What's new and show this list.
 - A What's new window appears the first time a new version runs.
+- Clipboard sync for text: send your clipboard to the host or get the host's (Apollo-style hosts such as Vibepollo).
 - Install and restart: on portable Windows installs the downloaded update is unpacked over the app folder by a small script, with a backup and automatic rollback.
 - Report a problem button opens a prefilled GitHub issue (no diagnostics are attached).
 - A search box in Settings, and a setting for the shortcuts menu hotkey letter.

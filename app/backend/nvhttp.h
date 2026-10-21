@@ -172,6 +172,14 @@ public:
              bool persistGameControllersOnDisconnect,
              QString& rtspSessionUrl);
 
+    // Clipboard sync with Apollo-style hosts such as Vibepollo (text only). Both return false and
+    // fill in a short explanation when the host refuses or can't be reached.
+    bool
+    getClipboardText(QString& text, QString& error);
+
+    bool
+    setClipboardText(const QString& text, QString& error);
+
     QVector<NvApp>
     getAppList();
 
@@ -194,6 +202,9 @@ private:
                    QString arguments,
                    int timeoutMs,
                    NvLogLevel logLevel);
+
+    bool
+    clipboardRequest(bool post, const QByteArray& body, QByteArray& response, QString& error);
 
     NvAddress m_Address;
     QNetworkAccessManager* m_Nam;

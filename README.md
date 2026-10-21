@@ -10,6 +10,9 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 3. While streaming, press **Ctrl+Alt+Shift+H** to open the shortcuts menu. Press Esc to close it.
 4. If something goes wrong, open **Settings → Support → Save diagnostics file** and send the file along with a description of what happened.
 
+## Recommended host: Vibepollo-Vibelighted
+Vibelight works with any Sunshine or GameStream host, but some features need a host that supports Apollo-style extras. The companion host is [Vibepollo-Vibelighted](https://github.com/nyteghost/Vibepollo-Vibelighted), a fork of [Vibepollo](https://github.com/Nonary/Vibepollo) (itself based on Apollo and Sunshine). It is kept in step with Nonary's Vibepollo by a scheduled sync that opens a pull request when upstream changes, and its update checks use its own releases. Features that need such a host today: **Clipboard sync** (allow clipboard access for Vibelight in the host's web UI). Everything else works with stock Sunshine.
+
 ## What's different from upstream Moonlight
 
 ### Floating "Shortcuts" button
@@ -24,6 +27,7 @@ While streaming, the small round **Shortcuts button** is hidden. Press **Ctrl+Al
 - **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned shortcuts and your four most recently used ones appear in a column on the left.
 - **Custom shortcuts:** your own buttons on their own page, up to 28 entries (see below).
 - **Typing mode:** how "Paste clipboard as typing" (Ctrl+Alt+Shift+V), clipboard history entries and your custom text shortcuts reach the remote PC. **Unicode** (the default) sends the text itself, which works on Windows hosts in any keyboard layout. **Key presses** sends real key events for US-keyboard characters, which is what to use for terminals and Linux hosts, where Unicode input can be ignored or trigger shortcuts like GTK Inspector. It assumes a US layout on the host, and characters with no key (accents, emoji) are still sent as Unicode. Pick it in the menu under Vibelight controls → Typing mode (a small page with the two choices). The choice is remembered separately for each PC; PCs you haven't set yet use Unicode.
+- **Clipboard sync (text, both ways):** under **Clipboard** in the menu, **Send my clipboard to host** puts this PC's clipboard text on the host's clipboard, and **Get host clipboard** copies the host's clipboard text to this PC, so you can paste with a normal Ctrl+V on either side. It uses the clipboard feature of Apollo-style hosts such as **Vibepollo**; it won't work with stock Sunshine or GeForce Experience. On the host, allow clipboard access for this client in the host's web UI (the client's permissions). Text only; files can't be sent this way yet.
 - **Clipboard history:** the last 10 things you copied on this PC, as a column on the right. Click one to type it on the remote PC. The list is kept in memory only, is never saved to disk, and is gone when the stream ends. **Clear history** empties it right away. Anything you copy while streaming can appear here, including passwords, so clear it if that matters.
 
 **Feedback and tools**
@@ -98,7 +102,7 @@ The box at the top of **Settings** filters the sections as you type: only sectio
 The first time you run a new version (a different number in `app/version.txt`), a **What's new** window shows the notes from `app/whatsnew.txt`. It only appears once per version, and you can open it again any time from **Settings → Support → What's new**. Builds that keep the same version number don't show it again.
 
 ## Support and diagnostics
-Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest.
+Settings has a **Support** section showing the exact version and build (for example `6.2.0 (1a2b3c4)`), a **Save diagnostics file** button, and **Open log folder**. The diagnostics file (saved to your Downloads folder) lists the version, Windows version, CPU, graphics and gamepad information, plus the end of the latest log. Logs are written to `%TEMP%` as `Moonlight-<number>.log` (next to `Vibelight.exe` in portable mode); the app keeps the 10 newest. Clipboard sync writes lines starting with `[clipboard]` to the log: the request (host, port, size), the HTTP status, network and TLS errors, timing, and the host's error text. It never logs the clipboard contents. After trying clipboard sync, save a diagnostics file and send it along with what you saw.
 
 ## Staying in sync with upstream Moonlight
 The **Sync upstream** workflow runs weekly (or by hand from the Actions tab). When the original Moonlight has new commits it merges them into an `upstream-sync/<date>` branch and opens a pull request into `master` for review. If the merge conflicts, or changes workflow files, it opens an issue instead. To let it handle workflow changes and start builds on its pull requests automatically, add a repository secret named `SYNC_TOKEN` (a personal access token with `repo` and `workflow` scopes).

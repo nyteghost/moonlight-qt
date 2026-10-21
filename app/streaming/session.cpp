@@ -1739,6 +1739,18 @@ void Session::flushWindowEvents()
     SDL_PushEvent(&flushEvent);
 }
 
+bool Session::getHostClipboard(QString& text, QString& error)
+{
+    NvHTTP http(m_Computer);
+    return http.getClipboardText(text, error);
+}
+
+bool Session::setHostClipboard(const QString& text, QString& error)
+{
+    NvHTTP http(m_Computer);
+    return http.setClipboardText(text, error);
+}
+
 bool Session::typeAsKeyPresses() const
 {
     QSettings settings;

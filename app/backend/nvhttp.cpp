@@ -6,6 +6,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QXmlStreamReader>
 #include <QSslKey>
 #include <QImageReader>
@@ -452,6 +453,127 @@ void NvHTTP::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& error
     if (ignoreErrors) {
         reply->ignoreSslErrors(errors);
     }
+}
+
+bool
+NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response, QString& error)
+{
+    const char* method = post ? "POST" : "GET";
+    if (m_ServerCert.isNull() || m_BaseUrlHttps.port(0) == 0) {
+        error = "this host isn't paired over HTTPS";
+        qWarning() << "[clipboard]" << method << "not sent:" << error
+                   << "serverCertKnown=" << !m_ServerCert.isNull()
+                   << "httpsPort=" << m_BaseUrlHttps.port(0)
+                   << "host=" << m_BaseUrlHttps.host();
+        return false;
+    }
+
+    QUrl url(m_BaseUrlHttps);
+    url.setPath("/actions/clipboard");
+    url.setQuery("type=text&uniqueid=" + (m_UseTrueUid ? IdentityManager::get()->getUniqueId() : "0123456789ABCDEF") +
+                 "&uuid=" + QUuid::createUuid().toRfc4122().toHex());
+
+    QNetworkRequest request(url);
+    request.setSslConfiguration(IdentityManager::get()->getSslConfig());
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain; charset=utf-8");
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+    request.setAttribute(QNetworkRequest::ConnectionCacheExpiryTimeoutSecondsAttribute, 0);
+#endif
+
+    // Never log the clipboard text itself or the request id; only sizes and outcomes.
+    qInfo() << "[clipboard]" << method << url.scheme() + "://" + url.host() + ":" + QString::number(url.port())
+                                       + url.path() + "?type=text"
+            << "bodyBytes=" << body.size() << "qt=" << qVersion();
+    QElapsedTimer clipTimer;
+    clipTimer.start();
+
+    QStringList sslProblems;
+    auto sslLogConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this,
+                                    [&sslProblems](QNetworkReply*, const QList<QSslError>& errors) {
+        for (const QSslError& e : errors) {
+            sslProblems << e.errorString();
+        }
+    });
+    auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
+    QNetworkReply* reply = post ? m_Nam->post(request, body) : m_Nam->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, &loop, &QEventLoop::quit);
+    QTimer::singleShot(4000, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    const bool timedOut = !reply->isFinished();
+    if (timedOut) {
+        reply->abort();
+    }
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 3, 0)
+    m_Nam->clearAccessCache();
+#endif
+    disconnect(sslErrorsConnection);
+    disconnect(sslLogConnection);
+
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QNetworkReply::NetworkError networkError = reply->error();
+    const QString networkErrorText = reply->errorString();
+    const QString responseType = reply->header(QNetworkRequest::ContentTypeHeader).toString();
+    response = reply->readAll();
+    delete reply;
+
+    qInfo() << "[clipboard]" << method << "finished in" << clipTimer.elapsed() << "ms"
+            << "timedOut=" << timedOut << "httpStatus=" << status
+            << "networkError=" << (int)networkError << networkErrorText
+            << "responseBytes=" << response.size() << "contentType=" << responseType
+            << "sslProblemsIgnoredOrSeen=" << sslProblems;
+    if (status >= 400 && !response.isEmpty() && response.size() < 400) {
+        qWarning() << "[clipboard] host error body:" << QString::fromUtf8(response).simplified();
+    }
+
+    if (timedOut) {
+        error = "the host didn't answer";
+        qWarning() << "[clipboard] failed:" << error << "(4 s timeout; check the host is reachable on its HTTPS port)";
+        return false;
+    }
+    if (status == 401 || status == 403) {
+        error = (status == 401)
+                ? "the host refused it. Allow clipboard access for this client in the host's web UI"
+                : "the host says this client isn't streaming right now";
+        return false;
+    }
+    if (networkError != QNetworkReply::NoError || (status != 0 && status >= 400)) {
+        if (status == 404) {
+            error = "this host doesn't support clipboard sync (it needs Vibepollo or another Apollo-style host)";
+        }
+        else {
+            error = "request failed (" + QString::number(status != 0 ? status : (int)networkError) + ")";
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool
+NvHTTP::getClipboardText(QString& text, QString& error)
+{
+    QByteArray response;
+    if (!clipboardRequest(false, QByteArray(), response, error)) {
+        return false;
+    }
+    text = QString::fromUtf8(response);
+    return true;
+}
+
+bool
+NvHTTP::setClipboardText(const QString& text, QString& error)
+{
+    QByteArray response;
+    return clipboardRequest(true, text.toUtf8(), response, error);
 }
 
 QString

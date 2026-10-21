@@ -7,6 +7,7 @@ Shortcuts menu (Ctrl+Alt+Shift+H)
 - Stream timer, host info and the version in the menu.
 - Screenshot of the stream and a small latency graph (Windows).
 - Clipboard history: type any of your last 10 copies on the remote PC.
+- Clipboard sync: send your clipboard text to the host or get the host's, from the Clipboard page (needs Vibepollo or another Apollo-style host).
 - Typing mode: switch to key presses if text doesn't type into a terminal.
 
 Connection

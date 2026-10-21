@@ -65,6 +65,8 @@ private:
         KindOpenConfig, // open the custom shortcuts file in the default editor
         KindConnectionCheck, // measure the stream for 10 seconds and suggest a bitrate
         KindClipboard,  // type one of the recent local clipboard entries on the remote PC
+        KindClipPush,   // copy this PC's clipboard text to the host's clipboard
+        KindClipPull,   // copy the host's clipboard text to this PC's clipboard
         KindClearClips, // forget the clipboard history
         KindSetTyping,  // choose Unicode text (target 0) or key presses (target 1) for typing text
         KindScreenshot, // save the current stream picture as a PNG

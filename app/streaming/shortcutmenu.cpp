@@ -472,12 +472,28 @@ void ShortcutMenu::buildItems()
 
 void ShortcutMenu::addClipboardColumn()
 {
+    const int column = 0;
+    m_PageTitles[PageClipboard].push_back("Clipboard");
+
+    // Real copy and paste between the two PCs (needs an Apollo-style host such as Vibepollo)
+    auto sync = [this](const char* label, const char* hint, Kind kind) {
+        Item item;
+        item.label = label;
+        item.hint = hint;
+        item.kind = kind;
+        item.clientCombo = -1;
+        item.dangerous = false;
+        item.column = 0;
+        item.page = PageClipboard;
+        item.rect = {0, 0, 0, 0};
+        m_Items.push_back(item);
+    };
+    sync("Send my clipboard to host", "text", KindClipPush);
+    sync("Get host clipboard", "text", KindClipPull);
+
     if (m_ClipHistory.empty()) {
         return;
     }
-
-    const int column = 0;
-    m_PageTitles[PageClipboard].push_back("Clipboard history (types it)");
 
     for (const std::string& entry : m_ClipHistory) {
         // One-line preview that fits the column
@@ -503,7 +519,7 @@ void ShortcutMenu::addClipboardColumn()
 
         Item item;
         item.label = preview;
-        item.hint = "";
+        item.hint = "types it";
         item.kind = KindClipboard;
         item.text = entry;
         item.clientCombo = -1;
@@ -1452,6 +1468,53 @@ void ShortcutMenu::execute(const Item& itemRef)
 
     if (item.kind == KindConnectionCheck) {
         startConnectionCheck();
+        return;
+    }
+
+    if (item.kind == KindClipPull) {
+        QString text, error;
+        if (Session::get() == nullptr) {
+            return;
+        }
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard requested");
+        if (!Session::get()->getHostClipboard(text, error)) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard failed: %s", error.toUtf8().constData());
+            showTransient("Host clipboard: " + error.toStdString(), 6000);
+        }
+        else if (text.isEmpty()) {
+            showTransient("The host's clipboard is empty", 2500);
+        }
+        else {
+            SDL_SetClipboardText(text.toUtf8().constData());
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard ok (%d characters)", (int)text.size());
+            showTransient("Copied host clipboard (" + std::to_string(text.size()) + " characters)", 2500);
+        }
+        return;
+    }
+
+    if (item.kind == KindClipPush) {
+        if (Session::get() == nullptr) {
+            return;
+        }
+        char* raw = SDL_HasClipboardText() ? SDL_GetClipboardText() : nullptr;
+        const QString text = raw != nullptr ? QString::fromUtf8(raw) : QString();
+        if (raw != nullptr) {
+            SDL_free(raw);
+        }
+        QString error;
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard requested (%d characters)", (int)text.size());
+        if (text.isEmpty()) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send skipped: local clipboard has no text");
+            showTransient("Your clipboard has no text", 2500);
+        }
+        else if (!Session::get()->setHostClipboard(text, error)) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard failed: %s", error.toUtf8().constData());
+            showTransient("Host clipboard: " + error.toStdString(), 6000);
+        }
+        else {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard ok");
+            showTransient("Sent clipboard to host (" + std::to_string(text.size()) + " characters)", 2500);
+        }
         return;
     }
 

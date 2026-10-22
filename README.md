@@ -113,7 +113,7 @@ The **Sync upstream** workflow runs weekly (or by hand from the Actions tab). Wh
 Releases are optional. To publish one:
 
 1. Edit `app/version.txt` (for example `6.2.1`), update `app/whatsnew.txt` with what changed, and commit them.
-2. Tag and push: `git tag v6.2.1 && git push origin v6.2.1`.
+2. Either tag and push (`git tag v6.2.1 && git push origin v6.2.1`) or, on GitHub, open **Actions → Release → Run workflow** on `master`. The button uses the version in `app/version.txt` and creates the tag itself.
 3. The **Release** workflow builds the app and creates a GitHub Release with portable zips (`Vibelight-6.2.1-Windows-x64-portable.zip`, `...-arm64-...`) and a macOS `.dmg`. It stops early if the tag doesn't match `app/version.txt`.
 
 The in-app update indicator only shows something once a release like this exists with a higher version than the installed one.

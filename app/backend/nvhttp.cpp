@@ -209,7 +209,8 @@ NvHTTP::startApp(QString verb,
                  bool localAudio,
                  int gamepadMask,
                  bool persistGameControllersOnDisconnect,
-                 QString& rtspSessionUrl)
+                 QString& rtspSessionUrl,
+                 const QString& twoFactorCode)
 {
     int riKeyId;
 
@@ -238,6 +239,8 @@ NvHTTP::startApp(QString verb,
                                    "&remoteControllersBitmap="+QString::number(gamepadMask)+
                                    "&gcmap="+QString::number(gamepadMask)+
                                    "&gcpersist="+QString::number(persistGameControllersOnDisconnect ? 1 : 0)+
+                                   (twoFactorCode.isEmpty() ? QString() :
+                                       "&vibebeam_2fa="+QString::fromLatin1(QUrl::toPercentEncoding(twoFactorCode)))+
                                    LiGetLaunchUrlQueryParameters(),
                                    LAUNCH_TIMEOUT_MS);
 

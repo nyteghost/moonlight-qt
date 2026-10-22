@@ -2,6 +2,7 @@
 
 #include <QSemaphore>
 #include <QMutex>
+#include <QWaitCondition>
 #include <QThread>
 #include <QStringList>
 #include <string>
@@ -115,6 +116,10 @@ public:
     // Auto-reconnect support (used by StreamSegue.qml)
     Q_INVOKABLE bool wantsReconnect() const;
     Q_INVOKABLE Session* createReconnectSession();
+
+    // Answer the host's two-factor prompt (see twoFactorNeeded())
+    Q_INVOKABLE void submitTwoFactorCode(QString code);
+    Q_INVOKABLE void cancelTwoFactor();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -177,6 +182,10 @@ signals:
     void connectionStarted();
 
     void displayLaunchError(QString text);
+
+    // The host wants a two-factor code before it starts or resumes the stream.
+    // The UI answers with submitTwoFactorCode() or cancelTwoFactor().
+    void twoFactorNeeded(QString message);
 
     void quitStarting();
 
@@ -327,6 +336,13 @@ private:
     bool m_ShouldExit;
 
     bool m_AsyncConnectionSuccess;
+
+    bool promptForTwoFactorCode(const QString& message, QString& code);
+    QMutex m_TwoFactorMutex;
+    QWaitCondition m_TwoFactorWait;
+    QString m_TwoFactorCode;
+    bool m_TwoFactorAnswered = false;
+    bool m_TwoFactorCancelled = false;
     int m_PortTestResults;
 
     int m_ActiveVideoFormat;

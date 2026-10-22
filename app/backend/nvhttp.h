@@ -170,7 +170,8 @@ public:
              bool localAudio,
              int gamepadMask,
              bool persistGameControllersOnDisconnect,
-             QString& rtspSessionUrl);
+             QString& rtspSessionUrl,
+             const QString& twoFactorCode = QString());
 
     // Clipboard sync with Apollo-style hosts such as Vibepollo (text only). Both return false and
     // fill in a short explanation when the host refuses or can't be reached.

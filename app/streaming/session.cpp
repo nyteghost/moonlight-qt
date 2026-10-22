@@ -1567,6 +1567,43 @@ void Session::notifyMouseEmulationMode(bool enabled)
     }
 }
 
+// Called in a non-main thread: ask the UI for a code and wait for the answer
+bool Session::promptForTwoFactorCode(const QString& message, QString& code)
+{
+    QMutexLocker locker(&m_TwoFactorMutex);
+    m_TwoFactorAnswered = false;
+    m_TwoFactorCancelled = false;
+    m_TwoFactorCode.clear();
+
+    emit twoFactorNeeded(message);
+
+    while (!m_TwoFactorAnswered) {
+        m_TwoFactorWait.wait(&m_TwoFactorMutex);
+    }
+
+    code = m_TwoFactorCode.simplified();
+    m_TwoFactorCode.clear();
+    return !m_TwoFactorCancelled && !code.isEmpty();
+}
+
+void Session::submitTwoFactorCode(QString code)
+{
+    QMutexLocker locker(&m_TwoFactorMutex);
+    m_TwoFactorCode = code;
+    m_TwoFactorCancelled = false;
+    m_TwoFactorAnswered = true;
+    m_TwoFactorWait.wakeAll();
+}
+
+void Session::cancelTwoFactor()
+{
+    QMutexLocker locker(&m_TwoFactorMutex);
+    m_TwoFactorCode.clear();
+    m_TwoFactorCancelled = true;
+    m_TwoFactorAnswered = true;
+    m_TwoFactorWait.wakeAll();
+}
+
 class AsyncConnectionStartThread : public QThread
 {
 public:
@@ -1617,23 +1654,41 @@ bool Session::startConnectionAsync()
     }
 
     QString rtspSessionUrl;
+    QString twoFactorCode;
+    QString twoFactorMessage;
 
-    try {
-        NvHTTP http(m_Computer);
-        http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
-                      m_Computer->isNvidiaServerSoftware,
-                      m_App.id, &m_StreamConfig,
-                      enableGameOptimizations,
-                      m_Preferences->playAudioOnHost,
-                      m_InputHandler->getAttachedGamepadMask(),
-                      !m_Preferences->multiController,
-                      rtspSessionUrl);
-    } catch (const GfeHttpResponseException& e) {
-        emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
-        return false;
-    } catch (const QtNetworkReplyException& e) {
-        emit displayLaunchError(e.toQString());
-        return false;
+    for (int attempt = 0;; attempt++) {
+        try {
+            NvHTTP http(m_Computer);
+            http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
+                          m_Computer->isNvidiaServerSoftware,
+                          m_App.id, &m_StreamConfig,
+                          enableGameOptimizations,
+                          m_Preferences->playAudioOnHost,
+                          m_InputHandler->getAttachedGamepadMask(),
+                          !m_Preferences->multiController,
+                          rtspSessionUrl,
+                          twoFactorCode);
+            break;
+        } catch (const GfeHttpResponseException& e) {
+            // Vibebeam hosts answer 470 (code needed) or 471 (code refused) when two-factor is on.
+            // 472 means too many wrong codes, so asking again would not help.
+            if ((e.getStatusCode() == 470 || e.getStatusCode() == 471) && attempt < 5) {
+                twoFactorMessage = e.getStatusCode() == 471 ?
+                            tr("That code was not accepted. Enter a new six-digit code from your authenticator app, or a backup code.") :
+                            tr("This PC asks for a two-factor code. Enter the six-digit code from your authenticator app.");
+                if (!promptForTwoFactorCode(twoFactorMessage, twoFactorCode)) {
+                    // The user cancelled; go back quietly without an error dialog
+                    return false;
+                }
+                continue;
+            }
+            emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
+            return false;
+        } catch (const QtNetworkReplyException& e) {
+            emit displayLaunchError(e.toQString());
+            return false;
+        }
     }
 
     QByteArray hostnameStr = m_Computer->activeAddress.address().toUtf8();

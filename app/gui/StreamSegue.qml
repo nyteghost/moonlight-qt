@@ -53,6 +53,12 @@ Item {
         console.error(text)
     }
 
+    function twoFactorNeeded(message)
+    {
+        twoFactorDialog.message = message
+        twoFactorDialog.open()
+    }
+
     function quitStarting()
     {
         // Avoid the push transition animation
@@ -154,6 +160,7 @@ Item {
         session.stageFailed.connect(stageFailed)
         session.connectionStarted.connect(connectionStarted)
         session.displayLaunchError.connect(displayLaunchError)
+        session.twoFactorNeeded.connect(twoFactorNeeded)
         session.quitStarting.connect(quitStarting)
         session.sessionFinished.connect(sessionFinished)
         session.readyForDeletion.connect(sessionReadyForDeletion)
@@ -279,5 +286,48 @@ Item {
         verticalAlignment: Text.AlignVCenter
 
         wrapMode: Text.Wrap
+    }
+
+    NavigableDialog {
+        id: twoFactorDialog
+        title: qsTr("Two-factor code")
+        property string message
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        closePolicy: Popup.CloseOnEscape
+
+        onOpened: {
+            codeField.text = ""
+            codeField.forceActiveFocus()
+        }
+        onAccepted: {
+            if (session) {
+                session.submitTwoFactorCode(codeField.text)
+            }
+        }
+        onRejected: {
+            if (session) {
+                session.cancelTwoFactor()
+            }
+        }
+
+        Column {
+            spacing: 12
+            width: 380
+
+            Label {
+                text: twoFactorDialog.message
+                wrapMode: Text.Wrap
+                width: parent.width
+            }
+
+            TextField {
+                id: codeField
+                width: parent.width
+                maximumLength: 12
+                inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                placeholderText: qsTr("123456")
+                onAccepted: twoFactorDialog.accept()
+            }
+        }
     }
 }

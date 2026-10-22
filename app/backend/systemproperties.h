@@ -45,6 +45,7 @@ public:
     // Bitrate (kbps) suggested by the last in-stream connection check, or 0 if none
     Q_INVOKABLE int suggestedBitrateKbps();
     Q_INVOKABLE QString saveDiagnostics();
+    Q_INVOKABLE bool copyRecentProblems(); // puts the latest warnings, errors, [clipboard] and [file] lines on the clipboard
     Q_INVOKABLE void openLogFolder();
 
     // "What's new" notes bundled with the app. shouldShowWhatsNew() is true the first time

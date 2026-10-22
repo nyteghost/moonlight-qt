@@ -2104,6 +2104,14 @@ Flickable {
                     }
 
                     Button {
+                        text: qsTr("Copy recent problems")
+                        onClicked: {
+                            SystemProperties.copyRecentProblems()
+                            diagnosticsStatus.text = qsTr("Copied the latest warnings and errors. Paste them into a message.")
+                        }
+                    }
+
+                    Button {
                         text: qsTr("Open log folder")
                         onClicked: SystemProperties.openLogFolder()
                     }

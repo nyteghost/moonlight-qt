@@ -2,6 +2,8 @@
 #include "utils.h"
 
 #include <QGuiApplication>
+#include <QClipboard>
+#include <QStringList>
 #include <QLibraryInfo>
 #include <QSettings>
 #include <QDateTime>
@@ -296,6 +298,47 @@ void SystemProperties::refreshDisplays()
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
+// The warnings, errors and feature lines (clipboard, file drop) from the newest log, newest last.
+static QString recentProblemLines(int maxLines)
+{
+    QDir logDir(Path::getLogDir());
+    QFileInfoList logs = logDir.entryInfoList(QStringList("Moonlight-*.log"), QDir::Files, QDir::Time);
+    if (logs.isEmpty()) {
+        return QString();
+    }
+
+    QFile log(logs.first().absoluteFilePath());
+    if (!log.open(QIODevice::ReadOnly)) {
+        return QString();
+    }
+    const qint64 maxBytes = 1024 * 1024;
+    if (log.size() > maxBytes) {
+        log.seek(log.size() - maxBytes);
+        log.readLine();
+    }
+
+    QStringList matches;
+    while (!log.atEnd()) {
+        const QString line = QString::fromUtf8(log.readLine()).trimmed();
+        if (line.contains("[clipboard]") || line.contains("[file]") ||
+                line.contains("warn", Qt::CaseInsensitive) || line.contains("error", Qt::CaseInsensitive) ||
+                line.contains("fail", Qt::CaseInsensitive)) {
+            matches << line;
+            if (matches.size() > maxLines) {
+                matches.removeFirst();
+            }
+        }
+    }
+    return matches.join('\n');
+}
+
+bool SystemProperties::copyRecentProblems()
+{
+    const QString text = "Vibelight " + buildString + " on " + QSysInfo::prettyProductName() + "\n" + recentProblemLines(80);
+    QGuiApplication::clipboard()->setText(text);
+    return true;
+}
+
 QString SystemProperties::saveDiagnostics()
 {
     QString dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
@@ -325,6 +368,21 @@ QString SystemProperties::saveDiagnostics()
     stream << "HDR supported: " << (supportsHdr ? "yes" : "no") << "\n";
     stream << "Maximum resolution: " << maximumResolution.width() << "x" << maximumResolution.height() << "\n";
     stream << "Unmapped gamepads: " << (unmappedGamepads.isEmpty() ? QString("none") : unmappedGamepads) << "\n";
+
+    // Vibelight settings (keys and values only, nothing secret is stored under these)
+    stream << "\n---- Vibelight settings ----\n";
+    {
+        QSettings settings;
+        settings.beginGroup("vibelight");
+        const QStringList keys = settings.allKeys();
+        for (const QString& key : keys) {
+            stream << key << " = " << settings.value(key).toString() << "\n";
+        }
+        settings.endGroup();
+    }
+
+    stream << "\n---- Recent problems (warnings, errors, clipboard and file lines) ----\n";
+    stream << recentProblemLines(80) << "\n";
 
     // The newest log is the one for this run. Only the end is included to keep the file small.
     QDir logDir(Path::getLogDir());

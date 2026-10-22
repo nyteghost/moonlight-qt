@@ -182,6 +182,8 @@ ShortcutMenu::ShortcutMenu(SDL_Window* parentWindow, SdlInputHandler* inputHandl
         return;
     }
 
+    m_ClipHistoryEnabled = QSettings().value("vibelight/clipboardHistory", true).toBool();
+
     buildItems();
     layoutItems();
 
@@ -490,6 +492,7 @@ void ShortcutMenu::addClipboardColumn()
     };
     sync("Send my clipboard to host", "text", KindClipPush);
     sync("Get host clipboard", "text", KindClipPull);
+    sync("Clipboard history", m_ClipHistoryEnabled ? "on" : "off", KindToggleClipHistory);
 
     if (m_ClipHistory.empty()) {
         return;
@@ -549,6 +552,10 @@ void ShortcutMenu::pollClipboard()
         return;
     }
     m_LastClipPoll = now != 0 ? now : 1;
+
+    if (!m_ClipHistoryEnabled) {
+        return;
+    }
 
     if (!SDL_HasClipboardText()) {
         return;
@@ -1531,6 +1538,17 @@ void ShortcutMenu::execute(const Item& itemRef)
         return;
     }
 
+    if (item.kind == KindToggleClipHistory) {
+        m_ClipHistoryEnabled = !m_ClipHistoryEnabled;
+        QSettings().setValue("vibelight/clipboardHistory", m_ClipHistoryEnabled);
+        if (!m_ClipHistoryEnabled) {
+            m_ClipHistory.clear(); // forget what was already recorded, too
+        }
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] History %s", m_ClipHistoryEnabled ? "on" : "off");
+        showTransient(m_ClipHistoryEnabled ? "Clipboard history on" : "Clipboard history off and cleared", 2500);
+        return;
+    }
+
     switch (item.kind) {
     case KindClient:
         m_Input->performSpecialKeyCombo((SdlInputHandler::KeyCombo)item.clientCombo);
@@ -2051,10 +2069,11 @@ void ShortcutMenu::render()
                          item.rect.y + (item.rect.h - TTF_FontHeight(m_SmallFont)) / 2, true);
 
                 // A small green or grey dot makes on/off settings easy to read at a glance
-                if (item.kind == KindToggleGraph) {
+                if (item.kind == KindToggleGraph || item.kind == KindToggleClipHistory) {
+                    const bool on = item.kind == KindToggleGraph ? m_GraphEnabled : m_ClipHistoryEnabled;
                     SDL_Rect dot = { rightEdge - hintWidth - 14, item.rect.y + item.rect.h / 2 - 4, 8, 8 };
-                    fillRoundRect(s, dot, 4, m_GraphEnabled ? SDL_MapRGB(s->format, 0x34, 0xD3, 0x99)
-                                                            : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
+                    fillRoundRect(s, dot, 4, on ? SDL_MapRGB(s->format, 0x34, 0xD3, 0x99)
+                                                : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
                 }
             }
         }

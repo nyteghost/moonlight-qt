@@ -184,7 +184,7 @@ public:
     // the "Upload files" permission). Blocks until the transfer ends, so call it from a worker
     // thread. Fills in the name the host saved it under, or a short explanation on failure.
     bool
-    uploadFile(const QString& localPath, QString& savedName, QString& error);
+    uploadFile(const QString& localPath, QString& savedName, QString& error, qint64 hostMaxBytes = 0);
 
     QVector<NvApp>
     getAppList();

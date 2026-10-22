@@ -71,6 +71,7 @@ private:
         KindClipPush,   // copy this PC's clipboard text to the host's clipboard
         KindClipPull,   // copy the host's clipboard text to this PC's clipboard
         KindClearClips, // forget the clipboard history
+        KindToggleClipHistory, // turn recording of the local clipboard history on/off (remembered)
         KindSetTyping,  // choose Unicode text (target 0) or key presses (target 1) for typing text
         KindScreenshot, // save the current stream picture as a PNG
         KindToggleGraph, // show/hide the small latency graph
@@ -220,6 +221,8 @@ private:
     // Clipboard history, newest first
     std::vector<std::string> m_ClipHistory;
     unsigned int m_LastClipPoll = 0;
+    // Off stops recording copies (passwords included) in the menu; remembered between streams
+    bool m_ClipHistoryEnabled = true;
 
     // Screenshot scheduled for this SDL tick (0 = none), so the menu can get out of the picture
     unsigned int m_ScreenshotAt = 0;

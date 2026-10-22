@@ -208,6 +208,9 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     this->gfeVersion = NvHTTP::getXmlString(serverInfo, "GfeVersion");
     this->vibebeamFeatures = NvHTTP::getXmlString(serverInfo, "VibebeamFeatures");
     this->vibebeamHostOS = NvHTTP::getXmlString(serverInfo, "VibebeamHostOS");
+    // Limits are only advertised by newer Vibebeam hosts; 0 means "not told"
+    this->vibebeamMaxUploadBytes = NvHTTP::getXmlString(serverInfo, "VibebeamMaxUploadBytes").toLongLong();
+    this->vibebeamMaxClipboardBytes = NvHTTP::getXmlString(serverInfo, "VibebeamMaxClipboardBytes").toLongLong();
     this->gpuModel = NvHTTP::getXmlString(serverInfo, "gputype");
     this->activeAddress = http.address();
     this->state = NvComputer::CS_ONLINE;
@@ -568,6 +571,8 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(gfeVersion);
     ASSIGN_IF_CHANGED(vibebeamFeatures);
     ASSIGN_IF_CHANGED(vibebeamHostOS);
+    ASSIGN_IF_CHANGED(vibebeamMaxUploadBytes);
+    ASSIGN_IF_CHANGED(vibebeamMaxClipboardBytes);
     ASSIGN_IF_CHANGED(appVersion);
     ASSIGN_IF_CHANGED(isSupportedServerVersion);
     ASSIGN_IF_CHANGED(isNvidiaServerSoftware);

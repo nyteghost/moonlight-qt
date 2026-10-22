@@ -96,6 +96,8 @@ public:
     QString gfeVersion;
     QString vibebeamFeatures; // e.g. "clipboard,files" when the host is Vibebeam (empty otherwise)
     QString vibebeamHostOS;   // "windows", "linux", "macos" when the host is Vibebeam (empty otherwise)
+    qint64 vibebeamMaxUploadBytes = 0;    // largest file the host accepts (0 = unknown)
+    qint64 vibebeamMaxClipboardBytes = 0; // largest clipboard text the host accepts (0 = unknown)
     QString appVersion;
     QVector<NvDisplayMode> displayModes;
     int maxLumaPixelsHEVC;

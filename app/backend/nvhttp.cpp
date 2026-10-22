@@ -7,6 +7,9 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QFileInfo>
+#include <QUrlQuery>
 #include <QXmlStreamReader>
 #include <QSslKey>
 #include <QImageReader>
@@ -556,6 +559,129 @@ NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response
     }
 
     return true;
+}
+
+bool
+NvHTTP::uploadFile(const QString& localPath, QString& savedName, QString& error)
+{
+    static const qint64 kMaxUploadBytes = 1024LL * 1024 * 1024; // matches the host's limit
+
+    QFileInfo info(localPath);
+    if (!info.exists() || !info.isFile()) {
+        error = info.isDir() ? "folders can't be sent yet, send the files inside" : "the file no longer exists";
+        qWarning() << "[file] not sent:" << error << "path=" << localPath;
+        return false;
+    }
+    if (info.size() > kMaxUploadBytes) {
+        error = "it's larger than 1 GB";
+        qWarning() << "[file] not sent:" << error << "size=" << info.size();
+        return false;
+    }
+    if (m_ServerCert.isNull() || m_BaseUrlHttps.port(0) == 0) {
+        error = "this host isn't paired over HTTPS";
+        qWarning() << "[file] not sent:" << error << "host=" << m_BaseUrlHttps.host();
+        return false;
+    }
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        error = "couldn't read the file (" + file.errorString() + ")";
+        qWarning() << "[file] not sent:" << error;
+        return false;
+    }
+    const QByteArray body = file.readAll();
+    file.close();
+
+    QUrl url(m_BaseUrlHttps);
+    url.setPath("/actions/upload");
+    QUrlQuery query;
+    query.addQueryItem("name", QString::fromLatin1(QUrl::toPercentEncoding(info.fileName())));
+    query.addQueryItem("uniqueid", m_UseTrueUid ? IdentityManager::get()->getUniqueId() : "0123456789ABCDEF");
+    query.addQueryItem("uuid", QUuid::createUuid().toRfc4122().toHex());
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    request.setSslConfiguration(IdentityManager::get()->getSslConfig());
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+    request.setAttribute(QNetworkRequest::ConnectionCacheExpiryTimeoutSecondsAttribute, 0);
+#endif
+
+    qInfo() << "[file] uploading" << info.fileName() << "bytes=" << body.size()
+            << "to" << url.host() + ":" + QString::number(url.port()) << "/actions/upload";
+    QElapsedTimer timer;
+    timer.start();
+
+    QStringList sslProblems;
+    auto sslLogConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this,
+                                    [&sslProblems](QNetworkReply*, const QList<QSslError>& errors) {
+        for (const QSslError& e : errors) {
+            sslProblems << e.errorString();
+        }
+    });
+    auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
+    QNetworkReply* reply = m_Nam->post(request, body);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    // Give up after 10 minutes, or sooner if the app is quitting
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, &loop, &QEventLoop::quit);
+    QTimer::singleShot(10 * 60 * 1000, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    const bool timedOut = !reply->isFinished();
+    if (timedOut) {
+        reply->abort();
+    }
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 3, 0)
+    m_Nam->clearAccessCache();
+#endif
+    disconnect(sslErrorsConnection);
+    disconnect(sslLogConnection);
+
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QNetworkReply::NetworkError networkError = reply->error();
+    const QString networkErrorText = reply->errorString();
+    const QByteArray response = reply->readAll();
+    delete reply;
+
+    qInfo() << "[file] upload finished in" << timer.elapsed() << "ms"
+            << "timedOut=" << timedOut << "httpStatus=" << status
+            << "networkError=" << (int)networkError << networkErrorText
+            << "responseBytes=" << response.size() << "sslProblems=" << sslProblems;
+
+    if (timedOut) {
+        error = "the host didn't finish receiving it";
+    }
+    else if (status == 401) {
+        error = "the host refused it. Allow \"Upload files\" for this client in the host's web UI";
+    }
+    else if (status == 403) {
+        error = "the host says this client isn't streaming right now";
+    }
+    else if (status == 404 || status == 405) {
+        error = "this host doesn't support file transfer (it needs Vibebeam)";
+    }
+    else if (status == 413) {
+        error = "the host says it's too large";
+    }
+    else if (networkError != QNetworkReply::NoError || (status != 0 && status >= 400)) {
+        error = "request failed (" + QString::number(status != 0 ? status : (int)networkError) + ")";
+    }
+    else {
+        savedName = QString::fromUtf8(response).trimmed();
+        if (savedName.isEmpty()) {
+            savedName = info.fileName();
+        }
+        return true;
+    }
+
+    qWarning() << "[file] failed:" << error;
+    return false;
 }
 
 bool

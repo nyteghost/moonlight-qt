@@ -41,3 +41,5 @@ Project and builds
 - A weekly workflow that merges new upstream Moonlight commits into a pull request.
 - A rewritten README covering the features above.
 - CI checks: logic tests, a QML lint and a Windows test of the updater script.
+- Two-factor code prompt: when a Vibebeam host requires 2FA, Vibelight asks for the six-digit code (or a backup code) before it starts or resumes a stream.
+- Get host clipboard hotkey (Ctrl+Alt+Shift+C); hide/show cursor moved to U.

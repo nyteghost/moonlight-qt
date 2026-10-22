@@ -94,6 +94,8 @@ public:
     uint16_t activeHttpsPort;
     int currentGameId;
     QString gfeVersion;
+    QString vibebeamFeatures; // e.g. "clipboard,files" when the host is Vibebeam (empty otherwise)
+    QString vibebeamHostOS;   // "windows", "linux", "macos" when the host is Vibebeam (empty otherwise)
     QString appVersion;
     QVector<NvDisplayMode> displayModes;
     int maxLumaPixelsHEVC;

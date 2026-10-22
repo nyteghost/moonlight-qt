@@ -1823,7 +1823,10 @@ bool Session::takeUploadMessage(std::string& message, unsigned int& durationMs)
 bool Session::typeAsKeyPresses() const
 {
     QSettings settings;
-    const bool global = settings.value("vibelight/typeAsKeyPresses", false).toBool();
+    // Terminals on Linux hosts ignore Unicode typing, so default those hosts to key presses until
+    // the user picks a mode (per PC, or the older global setting).
+    const bool linuxHost = m_Computer->vibebeamHostOS == "linux";
+    const bool global = settings.value("vibelight/typeAsKeyPresses", linuxHost).toBool();
     return settings.value("vibelight/typingMode/" + m_Computer->uuid, global).toBool();
 }
 

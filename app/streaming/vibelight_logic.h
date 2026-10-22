@@ -67,7 +67,7 @@ inline double suggestBitrateMbps(double currentMbps, double dropPercent, unsigne
 // others are taken by Vibelight/Moonlight actions: Q Z X S M C D V L E K.
 inline const char* menuHotkeyChoices()
 {
-    return "ABFGHIJNOPRTUWY";
+    return "ABFGHIJNOPRTWY";
 }
 
 // Turns a saved setting into a valid hotkey letter, falling back to H.

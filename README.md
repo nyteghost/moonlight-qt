@@ -22,7 +22,7 @@ While streaming, the small round **Shortcuts button** is hidden. Press **Ctrl+Al
 
 **What's in the menu**
 - **Send to remote PC:** Ctrl+Alt+Del, Alt+Tab, Alt+F4, Task Manager (Ctrl+Shift+Esc), Win, Win+D, Win+E, Win+L, Win+R, Win+Tab, Win+Shift+S, Print Screen.
-- **Vibelight (Ctrl+Alt+Shift+key actions):** release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E). The two quit actions need a second click to confirm.
+- **Vibelight (Ctrl+Alt+Shift+key actions):** release/grab mouse (Z), fullscreen (X), performance stats (S), mouse mode (M), show/hide cursor (U), get the host's clipboard (C), minimize (D), paste clipboard as typing (V), pointer region lock (L), system key capture (K), quit stream (Q), quit stream and exit app (E). The two quit actions need a second click to confirm.
 - **Displays & windows (sent to the remote PC):** projection modes (Win+P), move a window to the left or right monitor (Win+Shift+Left/Right), snap left/right (Win+Left/Right), maximize (Win+Up), reset the graphics driver (Win+Ctrl+Shift+B). These change windows and display modes on the remote PC. Choosing which monitor is *streamed* is a host setting (Sunshine/Vibepollo), not something the client can switch.
 - **Pinned & recent:** right-click any shortcut to pin it (up to 10, marked with `*`). Pinned shortcuts and your four most recently used ones appear in a column on the left.
 - **Custom shortcuts:** your own buttons on their own page, up to 28 entries (see below).

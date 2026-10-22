@@ -64,12 +64,22 @@ jobs:
 
       - name: Build x64 binaries (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: pwsh
         run: |
-          set "PATH=%QT_PATH%;%PATH%"
-          scripts\build-arch.bat Release x64
+          $env:PATH = "$env:QT_PATH;$env:PATH"
+          cmd /c "scripts\build-arch.bat Release x64 2>&1" | Tee-Object -FilePath build-x64.log
+          exit $LASTEXITCODE
         env:
           QT_PATH: ${{ runner.workspace }}\Qt\${{ matrix.qt_version }}\msvc2022_64\bin
+
+      - name: Show compiler errors (Windows x64)
+        if: failure() && runner.os == 'Windows' && hashFiles('build-x64.log') != ''
+        shell: pwsh
+        run: |
+          # Surface the first compiler errors as annotations so they are visible without opening the log
+          Select-String -Path build-x64.log -Pattern 'error [A-Z]+[0-9]+|fatal error|: error|Error [0-9]+' |
+            Select-Object -First 15 |
+            ForEach-Object { Write-Host ("::error::" + ($_.Line.Trim() -replace '[\r\n%]', ' ')) }
 
       - name: Build ARM64 binaries (Windows)
         if: runner.os == 'Windows' && !inputs.windows_only

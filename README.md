@@ -10,8 +10,8 @@ Vibelight is a fork of [Moonlight PC](https://github.com/moonlight-stream/moonli
 3. While streaming, press **Ctrl+Alt+Shift+H** to open the shortcuts menu. Press Esc to close it.
 4. If something goes wrong, open **Settings → Support → Save diagnostics file** and send the file along with a description of what happened.
 
-## Recommended host: Vibepollo-Vibelighted
-Vibelight works with any Sunshine or GameStream host, but some features need a host that supports Apollo-style extras. The companion host is [Vibepollo-Vibelighted](https://github.com/nyteghost/Vibepollo-Vibelighted), a fork of [Vibepollo](https://github.com/Nonary/Vibepollo) (itself based on Apollo and Sunshine). It is kept in step with Nonary's Vibepollo by a scheduled sync that opens a pull request when upstream changes, and its update checks use its own releases. Features that need such a host today: **Clipboard sync** (allow clipboard access for Vibelight in the host's web UI). Everything else works with stock Sunshine.
+## Recommended host: Vibebeam
+Vibelight works with any Sunshine or GameStream host, but some features need a host that supports Apollo-style extras. The companion host is [Vibebeam](https://github.com/nyteghost/vibebeam), a fork of [Vibepollo](https://github.com/Nonary/Vibepollo) (itself based on Apollo and Sunshine). It is kept in step with Nonary's Vibepollo by a scheduled sync that opens a pull request when upstream changes, and its update checks use its own releases. Features that need such a host today: **Clipboard sync** (allow clipboard access for Vibelight in the host's web UI). Everything else works with stock Sunshine.
 
 ## What's different from upstream Moonlight
 

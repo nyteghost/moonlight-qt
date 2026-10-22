@@ -1808,6 +1808,105 @@ void Session::queueFileUpload(const QString& path)
     thread->start();
 }
 
+void Session::startHostClipboardPush(const QString& text)
+{
+    std::shared_ptr<UploadState> state = m_Upload;
+    {
+        QMutexLocker locker(&state->lock);
+        if (state->clipboardBusy) {
+            state->message = "Clipboard is still busy, try again in a moment";
+            state->messageMs = 3000;
+            state->messageReady = true;
+            return;
+        }
+        state->clipboardBusy = true;
+        state->message = "Sending clipboard...";
+        state->messageMs = 60000;
+        state->messageReady = true;
+    }
+
+    const NvAddress address = m_Computer->activeAddress;
+    const uint16_t httpsPort = m_Computer->activeHttpsPort;
+    const QSslCertificate serverCert = m_Computer->serverCert;
+    const bool useTrueUid = !m_Computer->isNvidiaServerSoftware;
+
+    QThread* thread = QThread::create([state, text, address, httpsPort, serverCert, useTrueUid]() {
+        QString error;
+        NvHTTP http(address, httpsPort, serverCert, useTrueUid);
+        const bool ok = http.setClipboardText(text, error);
+
+        QMutexLocker locker(&state->lock);
+        state->clipboardBusy = false;
+        state->message = ok ? ("Sent clipboard to host (" + std::to_string(text.size()) + " characters)")
+                            : ("Host clipboard: " + error.toStdString());
+        state->messageMs = ok ? 2500 : 6000;
+        state->messageReady = true;
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+}
+
+void Session::startHostClipboardPull()
+{
+    std::shared_ptr<UploadState> state = m_Upload;
+    {
+        QMutexLocker locker(&state->lock);
+        if (state->clipboardBusy) {
+            state->message = "Clipboard is still busy, try again in a moment";
+            state->messageMs = 3000;
+            state->messageReady = true;
+            return;
+        }
+        state->clipboardBusy = true;
+        state->message = "Getting host clipboard...";
+        state->messageMs = 60000;
+        state->messageReady = true;
+    }
+
+    const NvAddress address = m_Computer->activeAddress;
+    const uint16_t httpsPort = m_Computer->activeHttpsPort;
+    const QSslCertificate serverCert = m_Computer->serverCert;
+    const bool useTrueUid = !m_Computer->isNvidiaServerSoftware;
+
+    QThread* thread = QThread::create([state, address, httpsPort, serverCert, useTrueUid]() {
+        QString text, error;
+        NvHTTP http(address, httpsPort, serverCert, useTrueUid);
+        const bool ok = http.getClipboardText(text, error);
+
+        QMutexLocker locker(&state->lock);
+        state->clipboardBusy = false;
+        if (!ok) {
+            state->message = "Host clipboard: " + error.toStdString();
+            state->messageMs = 6000;
+        }
+        else if (text.isEmpty()) {
+            state->message = "The host's clipboard is empty";
+            state->messageMs = 2500;
+        }
+        else {
+            state->pulledText = text;
+            state->pulledReady = true;
+            state->message = "Copied host clipboard (" + std::to_string(text.size()) + " characters)";
+            state->messageMs = 2500;
+        }
+        state->messageReady = true;
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+}
+
+bool Session::takePulledClipboard(QString& text)
+{
+    QMutexLocker locker(&m_Upload->lock);
+    if (!m_Upload->pulledReady) {
+        return false;
+    }
+    text = m_Upload->pulledText;
+    m_Upload->pulledText.clear();
+    m_Upload->pulledReady = false;
+    return true;
+}
+
 bool Session::takeUploadMessage(std::string& message, unsigned int& durationMs)
 {
     QMutexLocker locker(&m_Upload->lock);
@@ -2140,6 +2239,10 @@ void Session::exec()
 
             std::string uploadMessage;
             unsigned int uploadMessageMs = 0;
+            QString pulledClipboard;
+            if (takePulledClipboard(pulledClipboard)) {
+                SDL_SetClipboardText(pulledClipboard.toUtf8().constData());
+            }
             if (takeUploadMessage(uploadMessage, uploadMessageMs)) {
                 m_ShortcutMenu->showTransient(uploadMessage, uploadMessageMs);
             }

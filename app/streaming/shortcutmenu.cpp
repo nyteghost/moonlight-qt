@@ -1472,23 +1472,11 @@ void ShortcutMenu::execute(const Item& itemRef)
     }
 
     if (item.kind == KindClipPull) {
-        QString text, error;
         if (Session::get() == nullptr) {
             return;
         }
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard requested");
-        if (!Session::get()->getHostClipboard(text, error)) {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard failed: %s", error.toUtf8().constData());
-            showTransient("Host clipboard: " + error.toStdString(), 6000);
-        }
-        else if (text.isEmpty()) {
-            showTransient("The host's clipboard is empty", 2500);
-        }
-        else {
-            SDL_SetClipboardText(text.toUtf8().constData());
-            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Get host clipboard ok (%d characters)", (int)text.size());
-            showTransient("Copied host clipboard (" + std::to_string(text.size()) + " characters)", 2500);
-        }
+        Session::get()->startHostClipboardPull(); // runs in the background; the result shows on the button
         return;
     }
 
@@ -1501,19 +1489,13 @@ void ShortcutMenu::execute(const Item& itemRef)
         if (raw != nullptr) {
             SDL_free(raw);
         }
-        QString error;
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard requested (%d characters)", (int)text.size());
         if (text.isEmpty()) {
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send skipped: local clipboard has no text");
             showTransient("Your clipboard has no text", 2500);
         }
-        else if (!Session::get()->setHostClipboard(text, error)) {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard failed: %s", error.toUtf8().constData());
-            showTransient("Host clipboard: " + error.toStdString(), 6000);
-        }
         else {
-            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send clipboard ok");
-            showTransient("Sent clipboard to host (" + std::to_string(text.size()) + " characters)", 2500);
+            Session::get()->startHostClipboardPush(text); // runs in the background
         }
         return;
     }

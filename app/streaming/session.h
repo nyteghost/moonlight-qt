@@ -153,6 +153,13 @@ public:
     void queueFileUpload(const QString& path);
     bool takeUploadMessage(std::string& message, unsigned int& durationMs);
 
+    // Clipboard sync without blocking the stream loop: the request runs on a worker thread and
+    // reports through takeUploadMessage(). A pulled host clipboard is handed back through
+    // takePulledClipboard() so the stream loop (main thread) can put it on the local clipboard.
+    void startHostClipboardPush(const QString& text);
+    void startHostClipboardPull();
+    bool takePulledClipboard(QString& text);
+
     // How "paste as typing" sends text to this PC: Unicode text (default) or key presses.
     // Remembered per PC; PCs that were never set use the older global setting.
     bool typeAsKeyPresses() const;
@@ -309,6 +316,9 @@ private:
         bool messageReady = false;
         std::string message;
         unsigned int messageMs = 0;
+        bool clipboardBusy = false;
+        bool pulledReady = false;
+        QString pulledText;
     };
     std::shared_ptr<UploadState> m_Upload = std::make_shared<UploadState>();
     int m_MouseEmulationRefCount;

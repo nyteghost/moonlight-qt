@@ -206,6 +206,8 @@ NvComputer::NvComputer(NvHTTP& http, QString serverInfo)
     this->currentGameId = NvHTTP::getCurrentGame(serverInfo);
     this->appVersion = NvHTTP::getXmlString(serverInfo, "appversion");
     this->gfeVersion = NvHTTP::getXmlString(serverInfo, "GfeVersion");
+    this->vibebeamFeatures = NvHTTP::getXmlString(serverInfo, "VibebeamFeatures");
+    this->vibebeamHostOS = NvHTTP::getXmlString(serverInfo, "VibebeamHostOS");
     this->gpuModel = NvHTTP::getXmlString(serverInfo, "gputype");
     this->activeAddress = http.address();
     this->state = NvComputer::CS_ONLINE;
@@ -564,6 +566,8 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(activeAddress);
     ASSIGN_IF_CHANGED(state);
     ASSIGN_IF_CHANGED(gfeVersion);
+    ASSIGN_IF_CHANGED(vibebeamFeatures);
+    ASSIGN_IF_CHANGED(vibebeamHostOS);
     ASSIGN_IF_CHANGED(appVersion);
     ASSIGN_IF_CHANGED(isSupportedServerVersion);
     ASSIGN_IF_CHANGED(isNvidiaServerSoftware);

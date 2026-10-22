@@ -65,10 +65,10 @@ std::string versionLine()
 const int kDefaultTopMargin = 6;
 const int kDragThresholdPx = 4;
 
-// Palette matches the Vibepollo web UI: near-black navy surfaces with an indigo accent
-const SDL_Color kTextColor = {0xE2, 0xE8, 0xF0, 0xFF};
-const SDL_Color kHintColor = {0x8B, 0x95, 0xAD, 0xFF};
-const SDL_Color kTitleColor = {0xA5, 0xB4, 0xFC, 0xFF};
+// Palette matches the Vibelight icon: warm near-black surfaces with a coral accent
+const SDL_Color kTextColor = {0xF3, 0xEA, 0xE4, 0xFF};
+const SDL_Color kHintColor = {0xA8, 0x9A, 0x9A, 0xFF};
+const SDL_Color kTitleColor = {0xF6, 0xC9, 0xB3, 0xFF};
 const SDL_Color kDangerColor = {0xF0, 0x70, 0x7A, 0xFF};
 const SDL_Color kHeaderTextColor = {0xFF, 0xFF, 0xFF, 0xFF};
 const int kMaxRowsPerColumn = 14;
@@ -1893,7 +1893,7 @@ void ShortcutMenu::drawLogoButton(SDL_Surface* dst, bool hover)
             // Outside the circle: window background (clipped away on Windows)
             if (!inCircle(px + 0.5, py + 0.5, size / 2, size / 2, size / 2)) {
                 SDL_Rect pixel = { px, py, 1, 1 };
-                SDL_FillRect(dst, &pixel, SDL_MapRGB(dst->format, 0x0D, 0x14, 0x24));
+                SDL_FillRect(dst, &pixel, SDL_MapRGB(dst->format, 0x17, 0x12, 0x1C));
                 continue;
             }
 
@@ -1938,10 +1938,10 @@ void ShortcutMenu::render()
         return;
     }
 
-    Uint32 border = SDL_MapRGB(s->format, 0x1E, 0x26, 0x40);
-    Uint32 background = SDL_MapRGB(s->format, 0x0D, 0x14, 0x24);
-    Uint32 headerColor = m_HeaderHover ? SDL_MapRGB(s->format, 0x7A, 0x7D, 0xF5) : SDL_MapRGB(s->format, 0x63, 0x66, 0xF1);
-    Uint32 hoverColor = SDL_MapRGB(s->format, 0x1A, 0x23, 0x40);
+    Uint32 border = SDL_MapRGB(s->format, 0x34, 0x28, 0x34);
+    Uint32 background = SDL_MapRGB(s->format, 0x17, 0x12, 0x1C);
+    Uint32 headerColor = m_HeaderHover ? SDL_MapRGB(s->format, 0xF0, 0x9C, 0x7A) : SDL_MapRGB(s->format, 0xE0, 0x7A, 0x56);
+    Uint32 hoverColor = SDL_MapRGB(s->format, 0x2B, 0x20, 0x2D);
     Uint32 chevronColor = SDL_MapRGB(s->format, 0xFF, 0xFF, 0xFF);
 
     // Closed: a small round button with a "menu" icon
@@ -2027,7 +2027,7 @@ void ShortcutMenu::render()
                 SDL_Rect hoverRect = { item.rect.x + 2, item.rect.y + 1, item.rect.w - 4, item.rect.h - 2 };
                 fillRoundRect(s, hoverRect, 5, hoverColor);
                 SDL_Rect accentBar = { hoverRect.x + 1, hoverRect.y + 5, 3, hoverRect.h - 10 };
-                fillRoundRect(s, accentBar, 1, SDL_MapRGB(s->format, 0x63, 0x66, 0xF1));
+                fillRoundRect(s, accentBar, 1, SDL_MapRGB(s->format, 0xE0, 0x7A, 0x56));
             }
 
             bool confirming = ((int)i == m_ConfirmIndex);
@@ -2044,7 +2044,7 @@ void ShortcutMenu::render()
                 // Radio button: filled accent dot with a white centre when selected, a ring otherwise
                 const bool selected = ((item.target == 1) == currentTypeAsKeys());
                 SDL_Rect outer = { item.rect.x + 9, item.rect.y + item.rect.h / 2 - 5, 10, 10 };
-                fillRoundRect(s, outer, 5, selected ? SDL_MapRGB(s->format, 0x63, 0x66, 0xF1)
+                fillRoundRect(s, outer, 5, selected ? SDL_MapRGB(s->format, 0xE0, 0x7A, 0x56)
                                                     : SDL_MapRGB(s->format, 0x4B, 0x55, 0x63));
                 SDL_Rect inner2 = { outer.x + (selected ? 3 : 2), outer.y + (selected ? 3 : 2),
                                     selected ? 4 : 6, selected ? 4 : 6 };
@@ -2313,10 +2313,10 @@ void ShortcutMenu::renderGraph()
         return;
     }
 
-    const Uint32 border = SDL_MapRGB(s->format, 0x1E, 0x26, 0x40);
-    const Uint32 background = SDL_MapRGB(s->format, 0x0D, 0x14, 0x24);
-    const Uint32 grid = SDL_MapRGB(s->format, 0x1E, 0x26, 0x40);
-    const Uint32 rttColor = SDL_MapRGB(s->format, 0x81, 0x8C, 0xF8);
+    const Uint32 border = SDL_MapRGB(s->format, 0x34, 0x28, 0x34);
+    const Uint32 background = SDL_MapRGB(s->format, 0x17, 0x12, 0x1C);
+    const Uint32 grid = SDL_MapRGB(s->format, 0x34, 0x28, 0x34);
+    const Uint32 rttColor = SDL_MapRGB(s->format, 0xF0, 0x9C, 0x7A);
     const Uint32 dropColor = SDL_MapRGB(s->format, 0xF0, 0x70, 0x7A);
 
     SDL_FillRect(s, nullptr, border);

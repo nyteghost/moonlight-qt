@@ -10,6 +10,10 @@ on:
   push:
     branches:
       - '**'
+    # Documentation-only pushes don't need a build
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:

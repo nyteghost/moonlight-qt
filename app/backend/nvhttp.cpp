@@ -596,8 +596,9 @@ NvHTTP::uploadFile(const QString& localPath, QString& savedName, QString& error)
     url.setPath("/actions/upload");
     QUrlQuery query;
     query.addQueryItem("name", QString::fromLatin1(QUrl::toPercentEncoding(info.fileName())));
-    query.addQueryItem("uniqueid", m_UseTrueUid ? IdentityManager::get()->getUniqueId() : "0123456789ABCDEF");
-    query.addQueryItem("uuid", QUuid::createUuid().toRfc4122().toHex());
+    const QString uniqueId = m_UseTrueUid ? IdentityManager::get()->getUniqueId() : QStringLiteral("0123456789ABCDEF");
+    query.addQueryItem("uniqueid", uniqueId);
+    query.addQueryItem("uuid", QString::fromLatin1(QUuid::createUuid().toRfc4122().toHex()));
     url.setQuery(query);
 
     QNetworkRequest request(url);

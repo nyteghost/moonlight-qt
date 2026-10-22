@@ -564,7 +564,7 @@ NvHTTP::clipboardRequest(bool post, const QByteArray& body, QByteArray& response
 bool
 NvHTTP::uploadFile(const QString& localPath, QString& savedName, QString& error)
 {
-    static const qint64 kMaxUploadBytes = 1024LL * 1024 * 1024; // matches the host's limit
+    static const qint64 kMaxUploadBytes = 512LL * 1024 * 1024; // matches the host's limit
 
     QFileInfo info(localPath);
     if (!info.exists() || !info.isFile()) {
@@ -573,7 +573,7 @@ NvHTTP::uploadFile(const QString& localPath, QString& savedName, QString& error)
         return false;
     }
     if (info.size() > kMaxUploadBytes) {
-        error = "it's larger than 1 GB";
+        error = "it's larger than 512 MB";
         qWarning() << "[file] not sent:" << error << "size=" << info.size();
         return false;
     }

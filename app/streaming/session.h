@@ -1,6 +1,11 @@
 #pragma once
 
 #include <QSemaphore>
+#include <QMutex>
+#include <QThread>
+#include <QStringList>
+#include <string>
+#include <memory>
 #include <QQuickWindow>
 
 #include <Limelight.h>
@@ -142,6 +147,11 @@ public:
     // Clipboard sync with the host (Apollo-style hosts only). Blocks for up to a few seconds.
     bool getHostClipboard(QString& text, QString& error);
     bool setHostClipboard(const QString& text, QString& error);
+
+    // Drag-and-drop: send a file dropped on the stream window to the host in the background.
+    // The newest status line ("Sending a.txt...", "Sent a.txt") is picked up by the stream loop.
+    void queueFileUpload(const QString& path);
+    bool takeUploadMessage(std::string& message, unsigned int& durationMs);
 
     // How "paste as typing" sends text to this PC: Unicode text (default) or key presses.
     // Remembered per PC; PCs that were never set use the older global setting.
@@ -291,6 +301,16 @@ private:
     bool m_ReconnectEligible = false;   // The way this session ended is worth retrying
     SdlInputHandler* m_InputHandler;
     ShortcutMenu* m_ShortcutMenu;
+    // Shared with the upload worker thread, which may outlive the stream by a little
+    struct UploadState {
+        QMutex lock;
+        QStringList queue;
+        bool running = false;
+        bool messageReady = false;
+        std::string message;
+        unsigned int messageMs = 0;
+    };
+    std::shared_ptr<UploadState> m_Upload = std::make_shared<UploadState>();
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;
     QStringList m_LaunchWarnings;

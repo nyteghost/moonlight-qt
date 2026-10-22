@@ -44,6 +44,9 @@ public:
     void tick();
     bool needsTick() const { return m_TransientUntil != 0 || m_CheckActive || m_Revealed || m_ScreenshotAt != 0 || m_GraphEnabled; }
 
+    // Short status text shown on the button (used for file drop progress)
+    void showTransient(const std::string& message, unsigned int durationMs);
+
 private:
     // The menu opens on the root page, which lists the other pages as categories
     enum Page {
@@ -106,7 +109,6 @@ private:
     static std::string itemId(const Item& item);
     void togglePin(int index);
     void recordRecent(const Item& item);
-    void showTransient(const std::string& message, unsigned int durationMs);
 
     // Clipboard history (kept in memory only, never written to disk)
     void pollClipboard();

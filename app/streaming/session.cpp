@@ -36,6 +36,9 @@
 #include <QSettings>
 #include <QCoreApplication>
 #include <QThreadPool>
+#include <QThread>
+#include <QFileInfo>
+#include <QMutexLocker>
 #include <QSvgRenderer>
 #include <QPainter>
 #include <QImage>
@@ -1751,6 +1754,72 @@ bool Session::setHostClipboard(const QString& text, QString& error)
     return http.setClipboardText(text, error);
 }
 
+void Session::queueFileUpload(const QString& path)
+{
+    std::shared_ptr<UploadState> state = m_Upload;
+    {
+        QMutexLocker locker(&state->lock);
+        state->queue.append(path);
+        if (state->running) {
+            return; // the worker will pick it up
+        }
+        state->running = true;
+    }
+
+    // Copy what the host connection needs so the worker never touches the Session
+    const NvAddress address = m_Computer->activeAddress;
+    const uint16_t httpsPort = m_Computer->activeHttpsPort;
+    const QSslCertificate serverCert = m_Computer->serverCert;
+    const bool useTrueUid = !m_Computer->isNvidiaServerSoftware;
+
+    QThread* thread = QThread::create([state, address, httpsPort, serverCert, useTrueUid]() {
+        for (;;) {
+            QString path;
+            {
+                QMutexLocker locker(&state->lock);
+                if (state->queue.isEmpty()) {
+                    state->running = false;
+                    return;
+                }
+                path = state->queue.takeFirst();
+            }
+
+            auto post = [&state](const QString& text, unsigned int ms) {
+                QMutexLocker locker(&state->lock);
+                state->message = text.toStdString();
+                state->messageMs = ms;
+                state->messageReady = true;
+            };
+
+            const QString name = QFileInfo(path).fileName();
+            post("Sending " + name + "...", 60000);
+
+            QString savedName, error;
+            NvHTTP http(address, httpsPort, serverCert, useTrueUid);
+            if (http.uploadFile(path, savedName, error)) {
+                post("Sent " + savedName + " to the host", 4000);
+            }
+            else {
+                post(name + ": " + error, 7000);
+            }
+        }
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+}
+
+bool Session::takeUploadMessage(std::string& message, unsigned int& durationMs)
+{
+    QMutexLocker locker(&m_Upload->lock);
+    if (!m_Upload->messageReady) {
+        return false;
+    }
+    message = m_Upload->message;
+    durationMs = m_Upload->messageMs;
+    m_Upload->messageReady = false;
+    return true;
+}
+
 bool Session::typeAsKeyPresses() const
 {
     QSettings settings;
@@ -2068,6 +2137,12 @@ void Session::exec()
         // Expire short-lived button messages ("Sent: Alt+Tab")
         if (m_ShortcutMenu != nullptr) {
             m_ShortcutMenu->tick();
+
+            std::string uploadMessage;
+            unsigned int uploadMessageMs = 0;
+            if (takeUploadMessage(uploadMessage, uploadMessageMs)) {
+                m_ShortcutMenu->showTransient(uploadMessage, uploadMessageMs);
+            }
         }
 
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
@@ -2108,6 +2183,15 @@ void Session::exec()
         }
 
         switch (event.type) {
+        case SDL_DROPFILE:
+            // A file dragged onto the stream window: send it to the host's receive folder
+            if (event.drop.file != nullptr) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[file] File dropped on the stream window");
+                queueFileUpload(QString::fromUtf8(event.drop.file));
+                SDL_free(event.drop.file);
+            }
+            break;
+
         case SDL_QUIT:
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                         "Quit event received");

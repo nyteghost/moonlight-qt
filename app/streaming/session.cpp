@@ -1771,8 +1771,9 @@ void Session::queueFileUpload(const QString& path)
     const uint16_t httpsPort = m_Computer->activeHttpsPort;
     const QSslCertificate serverCert = m_Computer->serverCert;
     const bool useTrueUid = !m_Computer->isNvidiaServerSoftware;
+    const qint64 hostMaxBytes = m_Computer->vibebeamMaxUploadBytes;
 
-    QThread* thread = QThread::create([state, address, httpsPort, serverCert, useTrueUid]() {
+    QThread* thread = QThread::create([state, address, httpsPort, serverCert, useTrueUid, hostMaxBytes]() {
         for (;;) {
             QString path;
             {
@@ -1796,7 +1797,7 @@ void Session::queueFileUpload(const QString& path)
 
             QString savedName, error;
             NvHTTP http(address, httpsPort, serverCert, useTrueUid);
-            if (http.uploadFile(path, savedName, error)) {
+            if (http.uploadFile(path, savedName, error, hostMaxBytes)) {
                 post("Sent " + savedName + " to the host", 4000);
             }
             else {
@@ -1811,6 +1812,21 @@ void Session::queueFileUpload(const QString& path)
 void Session::startHostClipboardPush(const QString& text)
 {
     std::shared_ptr<UploadState> state = m_Upload;
+
+    // Refuse text the host has said it can't take, instead of sending it and failing there
+    const qint64 hostMaxBytes = m_Computer->vibebeamMaxClipboardBytes;
+    const qint64 textBytes = text.toUtf8().size();
+    if (hostMaxBytes > 0 && textBytes > hostMaxBytes) {
+        QMutexLocker locker(&state->lock);
+        const qint64 limitKb = qMax<qint64>(1, hostMaxBytes / 1024);
+        state->message = "Clipboard text is too large for this host (limit " + std::to_string(limitKb) + " KB)";
+        state->messageMs = 4000;
+        state->messageReady = true;
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "[clipboard] Send skipped: %lld bytes is over the host's %lld byte limit",
+                    (long long)textBytes, (long long)hostMaxBytes);
+        return;
+    }
+
     {
         QMutexLocker locker(&state->lock);
         if (state->clipboardBusy) {

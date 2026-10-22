@@ -556,7 +556,7 @@ ApplicationWindow {
         standardButtons: Dialog.Ok | Dialog.Cancel
         text: qsTr("This version of Vibelight isn't optimized for your PC. Please download the '%1' version of Vibelight for the best streaming performance.").arg(SystemProperties.friendlyNativeArchName)
         onAccepted: {
-            Qt.openUrlExternally("https://github.com/nyteghost/moonlight-qt/releases");
+            Qt.openUrlExternally("https://github.com/nyteghost/vibelight/releases");
         }
     }
 

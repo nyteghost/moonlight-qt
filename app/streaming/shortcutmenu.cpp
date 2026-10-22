@@ -426,7 +426,8 @@ void ShortcutMenu::buildItems()
     client(PageVibelight, "Toggle fullscreen",        "X", SdlInputHandler::KeyComboToggleFullScreen, false);
     client(PageVibelight, "Performance stats",        "S", SdlInputHandler::KeyComboToggleStatsOverlay, false);
     client(PageVibelight, "Mouse mode",               "M", SdlInputHandler::KeyComboToggleMouseMode, false);
-    client(PageVibelight, "Show/hide cursor",         "C", SdlInputHandler::KeyComboToggleCursorHide, false);
+    client(PageVibelight, "Show/hide cursor",         "U", SdlInputHandler::KeyComboToggleCursorHide, false);
+    client(PageVibelight, "Get host clipboard",       "C", SdlInputHandler::KeyComboPullClipboard, false);
     client(PageVibelight, "Minimize",                 "D", SdlInputHandler::KeyComboToggleMinimize, false);
     client(PageVibelight, "Paste clipboard as typing","V", SdlInputHandler::KeyComboPasteText, false);
     // Typing mode opens its own small page with the two choices

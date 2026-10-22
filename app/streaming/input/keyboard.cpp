@@ -192,6 +192,14 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         Session::get()->toggleShortcutMenu();
         break;
 
+    case KeyComboPullClipboard:
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Detected get host clipboard combo");
+        if (Session::get() != nullptr) {
+            Session::get()->startHostClipboardPull(); // runs in the background
+        }
+        break;
+
     default:
         Q_UNREACHABLE();
     }

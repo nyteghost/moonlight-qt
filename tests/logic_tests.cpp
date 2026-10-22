@@ -149,7 +149,7 @@ static void testHotkey()
     CHECK(sanitizeMenuHotkey("!") == 'H');
 
     // Letters already used by other actions are refused
-    const char* taken = "QZXSMCDVLEK";
+    const char* taken = "QZXSMCDVLEKU";
     for (const char* p = taken; *p != '\0'; p++) {
         CHECK(sanitizeMenuHotkey(std::string(1, *p)) == 'H');
         CHECK(sanitizeMenuHotkey(std::string(1, (char)(*p - 'A' + 'a'))) == 'H');

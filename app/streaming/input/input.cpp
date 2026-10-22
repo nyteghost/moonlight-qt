@@ -111,8 +111,8 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboToggleMouseMode].enabled = true;
 
     m_SpecialKeyCombos[KeyComboToggleCursorHide].keyCombo = KeyComboToggleCursorHide;
-    m_SpecialKeyCombos[KeyComboToggleCursorHide].keyCode = SDLK_c;
-    m_SpecialKeyCombos[KeyComboToggleCursorHide].scanCode = SDL_SCANCODE_C;
+    m_SpecialKeyCombos[KeyComboToggleCursorHide].keyCode = SDLK_u;
+    m_SpecialKeyCombos[KeyComboToggleCursorHide].scanCode = SDL_SCANCODE_U;
     m_SpecialKeyCombos[KeyComboToggleCursorHide].enabled = true;
 
     m_SpecialKeyCombos[KeyComboToggleMinimize].keyCombo = KeyComboToggleMinimize;
@@ -139,6 +139,13 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].keyCode = SDLK_k;
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].scanCode = SDL_SCANCODE_K;
     m_SpecialKeyCombos[KeyComboToggleKeyboardGrab].enabled = WMUtils::isRunningDesktopEnvironment();
+
+    // Ctrl+Alt+Shift+C copies the host's clipboard to this PC (Vibebeam hosts only). The
+    // upstream "show/hide cursor" combo that used to be on C moved to U.
+    m_SpecialKeyCombos[KeyComboPullClipboard].keyCombo = KeyComboPullClipboard;
+    m_SpecialKeyCombos[KeyComboPullClipboard].keyCode = SDLK_c;
+    m_SpecialKeyCombos[KeyComboPullClipboard].scanCode = SDL_SCANCODE_C;
+    m_SpecialKeyCombos[KeyComboPullClipboard].enabled = true;
 
     // The last key of the shortcuts menu hotkey can be changed in Settings (H by default)
     const int menuLetterIndex = vibelight::sanitizeMenuHotkey(

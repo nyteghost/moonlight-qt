@@ -168,6 +168,7 @@ public:
         KeyComboQuitAndExit,
         KeyComboToggleKeyboardGrab,
         KeyComboToggleShortcutMenu,
+        KeyComboPullClipboard,
         KeyComboMax
     };
 

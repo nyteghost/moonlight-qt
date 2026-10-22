@@ -10,6 +10,8 @@ on:
   push:
     tags:
       - 'v*'
+  # "Run workflow" button: publishes v<app/version.txt> from the chosen branch (creates the tag)
+  workflow_dispatch:
 
 jobs:
   check-version:
@@ -17,19 +19,25 @@ jobs:
     outputs:
       ci_version: ${{ steps.info.outputs.ci_version }}
       version: ${{ steps.info.outputs.version }}
+      tag: ${{ steps.info.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Verify tag matches app/version.txt
         id: info
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
           FILE_VERSION="$(tr -d '[:space:]' < app/version.txt)"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${FILE_VERSION}"
+          fi
           if [ "${TAG#v}" != "${FILE_VERSION}" ]; then
             echo "::error::Tag ${TAG} does not match app/version.txt (${FILE_VERSION}). Bump app/version.txt, commit, and re-tag."
             exit 1
           fi
           echo "version=${FILE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "ci_version=$(echo ${GITHUB_SHA} | cut -c1-6)" >> "${GITHUB_OUTPUT}"
 
   build:
@@ -44,6 +52,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.check-version.outputs.version }}
+      TAG: ${{ needs.check-version.outputs.tag }}
       CI_VERSION: ${{ needs.check-version.outputs.ci_version }}
     steps:
       - uses: actions/checkout@v4
@@ -80,11 +89,12 @@ jobs:
             cat app/whatsnew.txt
             echo
           } > release-notes.md
-          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             # A release for this tag was already created by hand: attach the files to it
-            gh release upload "${GITHUB_REF_NAME}" release/* --clobber --repo "${GITHUB_REPOSITORY}"
+            gh release upload "${TAG}" release/* --clobber --repo "${GITHUB_REPOSITORY}"
           else
-            gh release create "${GITHUB_REF_NAME}" release/* \
+            gh release create "${TAG}" release/* \
+              --target "${GITHUB_SHA}" \
               --repo "${GITHUB_REPOSITORY}" \
               --title "Vibelight ${VERSION}" \
               --notes-file release-notes.md \

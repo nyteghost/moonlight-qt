@@ -9,6 +9,8 @@ Shortcuts menu (Ctrl+Alt+Shift+H)
 - Clipboard history: type any of your last 10 copies on the remote PC.
 - Clipboard sync: send your clipboard text to the host or get the host's, from the Clipboard page (needs Vibepollo or another Apollo-style host).
 - File drop: drag a file onto the stream window to send it to the host's receive folder (needs Vibebeam with "Upload files" allowed for this client). The button shows the progress.
+- Two-factor code: if the host turns on "Require 2FA to connect", Vibelight asks for the six-digit code when you start or resume a stream (needs Vibebeam).
+- Get host clipboard: Ctrl+Alt+Shift+C (hide/show cursor moved to U).
 - Typing mode: switch to key presses if text doesn't type into a terminal.
 
 Connection

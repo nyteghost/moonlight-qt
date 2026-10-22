@@ -62,7 +62,7 @@ void AutoUpdateChecker::sendCheckRequest()
 
     // We'll get a callback when this is finished. Vibelight checks the latest
     // published release of its own GitHub repository instead of upstream Moonlight.
-    QUrl url("https://api.github.com/repos/nyteghost/moonlight-qt/releases/latest");
+    QUrl url("https://api.github.com/repos/nyteghost/vibelight/releases/latest");
     QNetworkRequest request(url);
     request.setRawHeader("Accept", "application/vnd.github+json");
     request.setRawHeader("User-Agent", "Vibelight-UpdateChecker"); // Required by the GitHub API

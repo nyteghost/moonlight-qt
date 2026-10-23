@@ -21,7 +21,7 @@ jobs:
       version: ${{ steps.info.outputs.version }}
       tag: ${{ steps.info.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify tag matches app/version.txt
         id: info
         shell: bash
@@ -55,11 +55,11 @@ jobs:
       TAG: ${{ needs.check-version.outputs.tag }}
       CI_VERSION: ${{ needs.check-version.outputs.ci_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           sparse-checkout: app/whatsnew.txt
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: artifacts
           pattern: Vibelight-*

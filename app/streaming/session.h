@@ -343,6 +343,7 @@ private:
     QString m_TwoFactorCode;
     bool m_TwoFactorAnswered = false;
     bool m_TwoFactorCancelled = false;
+    bool m_TwoFactorAbort = false; // set once the session is interrupted so a pending prompt can't hang
     int m_PortTestResults;
 
     int m_ActiveVideoFormat;

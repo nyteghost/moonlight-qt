@@ -1575,15 +1575,19 @@ bool Session::promptForTwoFactorCode(const QString& message, QString& code)
     m_TwoFactorCancelled = false;
     m_TwoFactorCode.clear();
 
+    if (m_TwoFactorAbort) {
+        return false;
+    }
+
     emit twoFactorNeeded(message);
 
-    while (!m_TwoFactorAnswered) {
+    while (!m_TwoFactorAnswered && !m_TwoFactorAbort) {
         m_TwoFactorWait.wait(&m_TwoFactorMutex);
     }
 
     code = m_TwoFactorCode.simplified();
     m_TwoFactorCode.clear();
-    return !m_TwoFactorCancelled && !code.isEmpty();
+    return !m_TwoFactorAbort && !m_TwoFactorCancelled && !code.isEmpty();
 }
 
 void Session::submitTwoFactorCode(QString code)
@@ -2087,6 +2091,13 @@ Session* Session::createReconnectSession()
 
 void Session::interrupt()
 {
+    // Wake the connection thread if it is waiting for a two-factor code
+    {
+        QMutexLocker locker(&m_TwoFactorMutex);
+        m_TwoFactorAbort = true;
+        m_TwoFactorWait.wakeAll();
+    }
+
     // Stop any connection in progress
     LiInterruptConnection();
 

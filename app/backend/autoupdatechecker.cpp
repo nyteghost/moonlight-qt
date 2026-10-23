@@ -308,6 +308,12 @@ bool AutoUpdateChecker::canInstallUpdate() const
         return false;
     }
 
+    // Only replace our own files with a download that was checked against GitHub's
+    // published checksum. Without one the file is still saved for the user to open.
+    if (m_DownloadSha256.isEmpty()) {
+        return false;
+    }
+
     QDir appDir(QCoreApplication::applicationDirPath());
 
     // Only portable installs: an installed copy lives in a folder we shouldn't write to

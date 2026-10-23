@@ -13,6 +13,10 @@ Shortcuts menu (Ctrl+Alt+Shift+H)
 - Get host clipboard: Ctrl+Alt+Shift+C (hide/show cursor moved to U).
 - Typing mode: switch to key presses if text doesn't type into a terminal.
 
+Security
+- The 2FA code is never written to the log, and the 2FA prompt can be closed cleanly while you quit.
+- In-app updates now only install a download whose checksum was verified.
+
 Connection
 - Auto-reconnect: if the stream drops, Vibelight tries up to 3 times to resume.
 - Hold left Ctrl+Alt+Z to release the mouse and move it outside the window.
